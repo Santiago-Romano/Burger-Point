@@ -678,7 +678,7 @@ export const DEFAULT_MENU: MenuItem[] = [
   {
     name: "Promo Jueves Burger Point Doble",
     desc: "Burger Point doble con cheddar, panceta, cebolla caramelizada y papas fritas. $14.500 c/u. Delivery: mínimo 2 unidades.",
-    image: "burguers-fritas-burger-point.png",
+    image: "Promos jueves.png",
     tag: "Jueves · $14.500 c/u",
     tagHot: true,
     price: 14500,
