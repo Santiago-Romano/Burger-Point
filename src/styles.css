@@ -1,0 +1,180 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Burger Point — "Neon char" design system
+ * Dark, charred, appetite-driven. Ember orange on near-black ink.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  /* Neon char palette */
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-cream: var(--cream);
+  --color-cream-dim: var(--cream-dim);
+  --color-ember: var(--ember);
+  --color-ember-soft: var(--ember-soft);
+
+  --font-display: "Anton", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /* Neon char core */
+  --ink: oklch(0.145 0.008 60);
+  --ink-2: oklch(0.185 0.01 60);
+  --ink-3: oklch(0.225 0.012 60);
+  --cream: oklch(0.94 0.02 85);
+  --cream-dim: oklch(0.76 0.03 80);
+  --ember: oklch(0.68 0.21 42);
+  --ember-soft: oklch(0.74 0.17 55);
+
+  /* Semantic mapping (dark-first site) */
+  --background: var(--ink);
+  --foreground: var(--cream);
+  --card: var(--ink-2);
+  --card-foreground: var(--cream);
+  --popover: var(--ink-2);
+  --popover-foreground: var(--cream);
+  --primary: var(--ember);
+  --primary-foreground: var(--ink);
+  --secondary: var(--ink-3);
+  --secondary-foreground: var(--cream);
+  --muted: var(--ink-3);
+  --muted-foreground: var(--cream-dim);
+  --accent: var(--ink-3);
+  --accent-foreground: var(--cream);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: var(--cream);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: var(--ember);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body);
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  ::selection {
+    background-color: var(--color-ember);
+    color: var(--color-ink);
+  }
+}
+
+/* Neon char animations */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes steam {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scaleX(1);
+  }
+  40% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-46px) scaleX(1.6);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.82;
+  }
+  55% {
+    opacity: 0.95;
+  }
+  70% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@utility animate-rise {
+  animation: rise 0.7s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@utility animate-steam {
+  animation: steam 3.5s ease-out infinite;
+}
+
+@utility animate-flicker {
+  animation: flicker 4s infinite;
+}
+
+@utility animate-marquee {
+  animation: marquee 22s linear infinite;
+}

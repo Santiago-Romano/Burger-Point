@@ -1,0 +1,706 @@
+export type MenuCategory = "burgers" | "veggies" | "acompanamientos" | "bebidas" | "promos";
+
+export interface MenuVariant {
+  label: string;
+  name: string;
+  desc: string;
+  image: string;
+  price?: number;
+}
+
+export interface MenuExtra {
+  label: string;
+  price?: number;
+}
+
+export interface MenuItem {
+  name: string;
+  desc: string;
+  image: string;
+  category: MenuCategory;
+  tag?: string;
+  tagHot?: boolean;
+  price?: number;
+  enabled?: boolean;
+  promoDays?: number[];
+  variants?: MenuVariant[];
+  extras?: MenuExtra[];
+  sauces?: boolean;
+  sauceOptions?: string[];
+}
+
+export const MENU_CATEGORIES: { id: MenuCategory; label: string }[] = [
+  { id: "burgers", label: "Burgers + Fritas" },
+  { id: "veggies", label: "Veggies" },
+  { id: "acompanamientos", label: "Acompañamientos" },
+  { id: "bebidas", label: "Bebidas" },
+  { id: "promos", label: "Promos" },
+];
+
+export const DEFAULT_SAUCES = [
+  "Mayonesa",
+  "Mostaza",
+  "BBQ",
+  "Ketchup",
+  "Ninguna de las anteriores",
+];
+
+const burgerExtras: MenuExtra[] = [
+  { label: "Coca / Coca Zero / Sprite 600cc", price: 3500 },
+  { label: "Carne con Cheddar", price: 3000 },
+  { label: "Doble Carne con Cheddar", price: 5000 },
+  { label: "Panceta", price: 1800 },
+  { label: "Feta de Cheddar", price: 1500 },
+  { label: "Huevo", price: 1500 },
+  { label: "Cebolla Caramelizada", price: 1500 },
+  { label: "Pepinos Agridulces", price: 1500 },
+  { label: "Cebolla Morada", price: 1500 },
+  { label: "Lechuga", price: 1000 },
+  { label: "Tomate", price: 1000 },
+];
+
+const friesExtras: MenuExtra[] = [
+  { label: "Dip de Cheddar Líquido", price: 3000 },
+  { label: "Dip de BBQ", price: 2000 },
+  { label: "Dip de Ketchup", price: 2000 },
+];
+
+export const DEFAULT_MENU: MenuItem[] = [
+  {
+    name: "Burger Point",
+    desc: "La de la casa. Smash sellada, cheddar y salsa Point, con fritas.",
+    image: "burguers-fritas-burger-point.png",
+    tag: "La de la casa",
+    tagHot: true,
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 16000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Burger Point Simple",
+        desc: "La de la casa con fritas.",
+        image: "burguers-fritas-burger-point.png",
+        price: 16000,
+      },
+      {
+        label: "Doble",
+        name: "Burger Point Doble",
+        desc: "Doble Burger Point con fritas.",
+        image: "burguers-fritas-burger-point.png",
+        price: 17000,
+      },
+      {
+        label: "Triple",
+        name: "Burger Point Triple",
+        desc: "Triple Burger Point con fritas.",
+        image: "burguers-fritas-burger-point.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Cheese Burger",
+    desc: "La clásica: cheddar fundido y fritas crocantes. Elegí cuánta carne.",
+    image: "burguers-fritas-simples-chesse-burger-simple.png",
+    tag: "Best seller",
+    tagHot: true,
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 15500,
+    variants: [
+      {
+        label: "Simple",
+        name: "Cheese Burger Simple",
+        desc: "Clásica con cheddar fundido y fritas crocantes.",
+        image: "burguers-fritas-simples-chesse-burger-simple.png",
+        price: 15500,
+      },
+      {
+        label: "Doble",
+        name: "Cheese Burger Doble",
+        desc: "Doble carne, doble cheddar. Para hambre de verdad.",
+        image: "burguers-fritas-dobles-chesse-burger-doble.png",
+        price: 17000,
+      },
+      {
+        label: "Triple",
+        name: "Cheese Burger Triple",
+        desc: "Tres patties selladas, triple cheddar y fritas.",
+        image: "burguers-fritas-triples-chesse-burger-triple.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Implosive Burger",
+    desc: "La que explota de sabor: cheddar, panceta y salsa de la casa.",
+    image: "burguers-fritas-simples-implosive-burger.png",
+    tag: "Best seller",
+    tagHot: true,
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 17000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Implosive Burger",
+        desc: "La que explota de sabor: cheddar, panceta y salsa de la casa.",
+        image: "burguers-fritas-simples-implosive-burger.png",
+        price: 17000,
+      },
+      {
+        label: "Doble",
+        name: "Implosive Burger Doble",
+        desc: "Doble implosión: dos carnes, panceta crocante y cheddar.",
+        image: "burguers-fritas-dobles-implosive-burger-doble.png",
+        price: 19000,
+      },
+      {
+        label: "Triple",
+        name: "Implosive Burger Triple",
+        desc: "Triple carne, triple locura. No apta para indecisos.",
+        image: "burguers-fritas-triples-implosive-burger-triple.png",
+        price: 21000,
+      },
+    ],
+  },
+  {
+    name: "Oklahoma",
+    desc: "Cebolla aplastada en la plancha, estilo Oklahoma original.",
+    image: "burguers-fritas-simples-oklahoma-simple.png",
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 16000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Oklahoma Simple",
+        desc: "Cebolla aplastada en la plancha, estilo Oklahoma original.",
+        image: "burguers-fritas-simples-oklahoma-simple.png",
+        price: 16000,
+      },
+      {
+        label: "Doble",
+        name: "Oklahoma Doble",
+        desc: "Doble carne con cebolla caramelizada en la plancha.",
+        image: "burguers-fritas-dobles-oklahoma-doble.png",
+        price: 17000,
+      },
+      {
+        label: "Triple",
+        name: "Oklahoma Triple",
+        desc: "Tres patties con cebolla fundida y cheddar.",
+        image: "burguers-fritas-triples-oklahoma-triple.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Grand Tasty Point",
+    desc: "Nuestra versión de la tasty: salsa especial, cheddar y fritas.",
+    image: "burguers-fritas-simples-grand-tasty-point-simple.png",
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 16000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Grand Tasty Point Simple",
+        desc: "Nuestra versión de la tasty: salsa especial, cheddar y fritas.",
+        image: "burguers-fritas-simples-grand-tasty-point-simple.png",
+        price: 16000,
+      },
+      {
+        label: "Doble",
+        name: "Grand Tasty Point Doble",
+        desc: "Doble tasty con salsa de la casa y queso fundido.",
+        image: "burguers-fritas-dobles-grand-tasty-point-doble.png",
+        price: 17000,
+      },
+      {
+        label: "Triple",
+        name: "Grand Tasty Point Triple",
+        desc: "La tasty más grande que vas a ver. Triple carne.",
+        image: "burguers-fritas-triples-grand-tasty-point-triple.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Bomb Tasty",
+    desc: "Bomba de sabor con salsa tasty. Solo viene grande.",
+    image: "burguers-fritas-dobles-bomb-tasty-doble.png",
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 18000,
+    variants: [
+      {
+        label: "Doble",
+        name: "Bomb Tasty Doble",
+        desc: "Bomba de sabor: doble carne, doble queso, salsa tasty.",
+        image: "burguers-fritas-dobles-bomb-tasty-doble.png",
+        price: 18000,
+      },
+      {
+        label: "Triple",
+        name: "Bomb Tasty Triple",
+        desc: "La bomba definitiva. Triple carne y queso hasta el borde.",
+        image: "burguers-fritas-triples-bomb-tasty-triple.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Onion Point Doble",
+    desc: "Doble carne con aros de cebolla crocantes y BBQ.",
+    image: "burguers-fritas-dobles-onion-point-doble.png",
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 18000,
+    variants: [
+      {
+        label: "Doble",
+        name: "Onion Point Doble",
+        desc: "Doble carne con aros de cebolla crocantes y BBQ.",
+        image: "burguers-fritas-dobles-onion-point-doble.png",
+        price: 18000,
+      },
+      {
+        label: "Triple",
+        name: "Onion Point Triple",
+        desc: "Triple carne con aros de cebolla crocantes y BBQ.",
+        image: "burguers-fritas-dobles-onion-point-doble.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Ten Point",
+    desc: "La triple insignia. Diez puntos, sin discusión.",
+    image: "burguers-fritas-triples-ten-point.png",
+    tag: "Insignia",
+    tagHot: true,
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 20000,
+  },
+  {
+    name: "Burger Angus",
+    desc: "Carne angus premium, sellada a la plancha.",
+    image: "burguers-fritas-burger-angus.png",
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 16000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Burger Angus Simple",
+        desc: "Burger Angus con fritas.",
+        image: "burguers-fritas-burger-angus.png",
+        price: 16000,
+      },
+      {
+        label: "Doble",
+        name: "Burger Angus Doble",
+        desc: "Doble Burger Angus con fritas.",
+        image: "burguers-fritas-burger-angus.png",
+        price: 17000,
+      },
+      {
+        label: "Triple",
+        name: "Burger Angus Triple",
+        desc: "Triple Burger Angus con fritas.",
+        image: "burguers-fritas-burger-angus.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Burger House",
+    desc: "La receta de la casa, como la hacemos desde el día uno.",
+    image: "burguers-fritas-burger-house.png",
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 16000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Burger House Simple",
+        desc: "Burger House con fritas.",
+        image: "burguers-fritas-burger-house.png",
+        price: 16000,
+      },
+      {
+        label: "Doble",
+        name: "Burger House Doble",
+        desc: "Doble Burger House con fritas.",
+        image: "burguers-fritas-burger-house.png",
+        price: 17000,
+      },
+      {
+        label: "Triple",
+        name: "Burger House Triple",
+        desc: "Triple Burger House con fritas.",
+        image: "burguers-fritas-burger-house.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Burguer Kid",
+    desc: "Para los más chicos: simple, rica y con fritas.",
+    image: "burguers-fritas-burguer-kid.png",
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 16000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Burger Kid Simple",
+        desc: "Burger Kid con fritas.",
+        image: "burguers-fritas-burguer-kid.png",
+        price: 16000,
+      },
+      {
+        label: "Doble",
+        name: "Burger Kid Doble",
+        desc: "Doble Burger Kid con fritas.",
+        image: "burguers-fritas-burguer-kid.png",
+        price: 17000,
+      },
+      {
+        label: "Triple",
+        name: "Burger Kid Triple",
+        desc: "Triple Burger Kid con fritas.",
+        image: "burguers-fritas-burguer-kid.png",
+        price: 20000,
+      },
+    ],
+  },
+  {
+    name: "Cajita Feliz",
+    desc: "Burger simple + fritas en cajita. Felicidad garantizada.",
+    image: "burguers-fritas-simples-cajita-feliz-simple.png",
+    category: "burgers",
+    extras: burgerExtras,
+    sauces: true,
+    price: 20000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Cajita Feliz Simple",
+        desc: "Cheese Burger, papas fritas, nuggets y bastón de muzzarella.",
+        image: "burguers-fritas-simples-cajita-feliz-simple.png",
+        price: 20000,
+      },
+      {
+        label: "Doble",
+        name: "Cajita Feliz Doble",
+        desc: "Cajita Feliz doble.",
+        image: "burguers-fritas-simples-cajita-feliz-simple.png",
+        price: 21000,
+      },
+    ],
+  },
+  {
+    name: "Not Libra",
+    desc: "Veggie que no parece veggie. Con fritas.",
+    image: "burguers-veggies-fritas-simples-not-libra-simple.png",
+    tag: "Veggie",
+    category: "veggies",
+    price: 16000,
+    variants: [
+      {
+        label: "Simple",
+        name: "Not Libra Simple",
+        desc: "Veggie que no parece veggie. Con fritas.",
+        image: "burguers-veggies-fritas-simples-not-libra-simple.png",
+        price: 16000,
+      },
+      {
+        label: "Doble",
+        name: "Not Libra Doble",
+        desc: "Doble porción veggie, doble sabor. Con fritas.",
+        image: "burguers-veggies-fritas-dobles-not-libra-doble.png",
+        price: 17000,
+      },
+    ],
+  },
+  {
+    name: "Not Chicken",
+    desc: "Crujiente, dorada y 100% vegetal. Con fritas.",
+    image: "burguers-veggies-fritas-not-chicken.png",
+    tag: "Veggie",
+    category: "veggies",
+    price: 16500,
+    variants: [
+      {
+        label: "Simple",
+        name: "Not Chicken Simple",
+        desc: "Not Chicken con fritas.",
+        image: "burguers-veggies-fritas-not-chicken.png",
+        price: 16500,
+      },
+      {
+        label: "Doble",
+        name: "Not Chicken Doble",
+        desc: "Doble Not Chicken con fritas.",
+        image: "burguers-veggies-fritas-not-chicken.png",
+        price: 18500,
+      },
+    ],
+  },
+  {
+    name: "Burgaña de Lentejas y Especias",
+    desc: "Medallón casero de lentejas con especias. Con fritas.",
+    image: "burguers-veggies-fritas-burgana-de-lentejas-y-especias.png",
+    tag: "Veggie",
+    category: "veggies",
+    price: 17000,
+  },
+  {
+    name: "Cheddar, Panceta y Verdeo en las papas",
+    desc: "Adicional de cheddar, panceta y verdeo para las papas de la hamburguesa. No se pueden quitar ingredientes.",
+    image: "burguers-fritas-cheddar-panceta-y-verdeo-adicional-en-las-papas-de-la-hamburguesa.png",
+    category: "acompanamientos",
+    price: 4000,
+  },
+  {
+    name: "Adicional cheddar y verdeo para las papas",
+    desc: "Cheddar y verdeo para la porción de papas que acompaña la hamburguesa.",
+    image: "burguers-veggies-fritas-adicional-cheddar-y-verdeo-para-las-papas.png",
+    category: "acompanamientos",
+    price: 3500,
+  },
+  {
+    name: "Aros de Cebolla x10",
+    desc: "Crocantes, con ketchup.",
+    image: "acompaamientos-aros-de-cebolla-10-unidades-ketchup.png",
+    category: "acompanamientos",
+    price: 9000,
+    extras: friesExtras,
+  },
+  {
+    name: "Bastones de Muzzarella x6",
+    desc: "Queso que se estira, con ketchup.",
+    image: "acompaamientos-bastones-de-muzzarela-6-unidades-ketchup.png",
+    category: "acompanamientos",
+    price: 17000,
+    extras: friesExtras,
+  },
+  {
+    name: "Nuggets x10",
+    desc: "Dorados y crocantes, con BBQ.",
+    image: "acompaamientos-nuggets-10-unidades-bbq.png",
+    category: "acompanamientos",
+    price: 9000,
+    extras: friesExtras,
+  },
+  {
+    name: "Papas Cerveceras",
+    desc: "Con piel, bien condimentadas. Elegí el tamaño.",
+    image: "acompaamientos-papas-fritas-papas-cerveceras-chicas.png",
+    category: "acompanamientos",
+    price: 12000,
+    extras: friesExtras,
+    variants: [
+      {
+        label: "Chicas",
+        name: "Papas Cerveceras Chicas",
+        desc: "Con piel, bien condimentadas. Ideales para acompañar.",
+        image: "acompaamientos-papas-fritas-papas-cerveceras-chicas.png",
+        price: 12000,
+      },
+      {
+        label: "Grandes",
+        name: "Papas Cerveceras Grandes",
+        desc: "Para compartir (o no). Las más pedidas.",
+        image: "acompaamientos-papas-fritas-papas-cerveceras-grandes.png",
+        price: 15000,
+      },
+    ],
+  },
+  {
+    name: "Porción de Fritas",
+    desc: "Las clásicas, doradas. Elegí el tamaño.",
+    image: "acompaamientos-papas-fritas-porcion-de-fritas-chicas.png",
+    category: "acompanamientos",
+    price: 4000,
+    extras: friesExtras,
+    variants: [
+      {
+        label: "Chica",
+        name: "Porción de Fritas Chica",
+        desc: "Las clásicas, doradas y crocantes.",
+        image: "acompaamientos-papas-fritas-porcion-de-fritas-chicas.png",
+        price: 4000,
+      },
+      {
+        label: "Grande",
+        name: "Porción de Fritas Grande",
+        desc: "La porción que alcanza para todos.",
+        image: "acompaamientos-papas-fritas-procion-de-fritas-grande.png",
+        price: 10000,
+      },
+    ],
+  },
+  {
+    name: "Picada Caliente",
+    desc: "Un poco de todo, bien caliente.",
+    image: "acompaamientos-picada-caliente.png",
+    tag: "Para compartir",
+    category: "acompanamientos",
+    price: 18000,
+    extras: friesExtras,
+  },
+  {
+    name: "Picada Nuggets",
+    desc: "Nuggets y fritas para picar.",
+    image: "acompaamientos-picada-nuggets.png",
+    category: "acompanamientos",
+    price: 18000,
+    extras: friesExtras,
+  },
+  {
+    name: "Tostato",
+    desc: "Tostado con pan de papa, doble cheddar y mostaza.",
+    image: "acompaamientos-tostato.png",
+    category: "acompanamientos",
+    price: 4000,
+    extras: friesExtras,
+    variants: [
+      {
+        label: "Cheddar",
+        name: "Tostado C/ Cheddar",
+        desc: "Pan de papa, doble cheddar y mostaza.",
+        image: "acompaamientos-tostato.png",
+        price: 4000,
+      },
+      {
+        label: "Cheddar y Huevo",
+        name: "Tostado C/ Cheddar y Huevo",
+        desc: "Pan de papa, doble cheddar, mostaza y huevo.",
+        image: "acompaamientos-tostato.png",
+        price: 4300,
+      },
+      {
+        label: "Cheddar y Panceta",
+        name: "Tostado C/ Cheddar y Panceta",
+        desc: "Pan de papa, doble cheddar, mostaza y panceta.",
+        image: "acompaamientos-tostato.png",
+        price: 4500,
+      },
+      {
+        label: "Cheddar, Panceta y Huevo",
+        name: "Tostado C/ Cheddar, Panceta y Huevo",
+        desc: "Pan de papa, doble cheddar, mostaza, panceta y huevo.",
+        image: "acompaamientos-tostato.png",
+        price: 5000,
+      },
+    ],
+  },
+  {
+    name: "Dip de Cheddar",
+    desc: "Para mojar todo.",
+    image: "acompaamientos-dips-dip-de-cheddar.png",
+    category: "acompanamientos",
+    price: 3000,
+  },
+  {
+    name: "Dip de BBQ",
+    desc: "Ahumado y dulzón.",
+    image: "acompaamientos-dips-dip-de-bbq.png",
+    category: "acompanamientos",
+    price: 2000,
+  },
+  {
+    name: "Dip de Ketchup",
+    desc: "El clásico para acompañar.",
+    image: "acompaamientos-dips-dip-de-ketchup.png",
+    category: "acompanamientos",
+    price: 2000,
+  },
+  {
+    name: "Dip de Mayonesa",
+    desc: "Suave y cremosa.",
+    image: "acompaamientos-dips-dip-de-mayonesa.png",
+    category: "acompanamientos",
+    price: 2000,
+  },
+  {
+    name: "Coca Cola 1.75L",
+    desc: "La grande, bien fría.",
+    image: "bebidas-coca-cola-1-75l.png",
+    category: "bebidas",
+    price: 6000,
+  },
+  {
+    name: "Coca Cola 600ml",
+    desc: "La compañera de siempre.",
+    image: "bebidas-coca-cola-600ml.png",
+    category: "bebidas",
+    price: 3500,
+  },
+  {
+    name: "Coca Cola Zero 600ml",
+    desc: "Sin azúcar, mismo gusto.",
+    image: "bebidas-coca-cola-zero-600ml.png",
+    category: "bebidas",
+    price: 3500,
+  },
+  {
+    name: "Sprite 600ml",
+    desc: "Lima-limón bien helada.",
+    image: "bebidas-sprite-600ml.png",
+    category: "bebidas",
+    price: 3500,
+  },
+  {
+    name: "Andes Rubia",
+    desc: "Cerveza rubia, la compañera ideal.",
+    image: "bebidas-andes-rubia.png",
+    tag: "+18",
+    category: "bebidas",
+    price: 3500,
+  },
+  {
+    name: "Promo Jueves Burger Point Doble",
+    desc: "Burger Point doble con cheddar, panceta, cebolla caramelizada y papas fritas. $14.500 c/u. Delivery: mínimo 2 unidades.",
+    image: "burguers-fritas-burger-point.png",
+    tag: "Jueves · $14.500 c/u",
+    tagHot: true,
+    price: 14500,
+    promoDays: [4],
+    category: "promos",
+  },
+  {
+    name: "Promo Sábado",
+    desc: "La promo del sábado: consultanos el combo de la semana.",
+    image: "burguers-fritas-promos-promo-sbado.png",
+    tag: "Sábados",
+    tagHot: true,
+    promoDays: [6],
+    category: "promos",
+  },
+  {
+    name: "Promo Domingo",
+    desc: "El domingo se pide en familia: consultanos el combo.",
+    image: "burguers-fritas-promos-promo-domingo.png",
+    tag: "Domingos",
+    tagHot: true,
+    promoDays: [0],
+    category: "promos",
+  },
+];
