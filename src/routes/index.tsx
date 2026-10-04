@@ -35,7 +35,7 @@ const WHATSAPP = "5491162118588";
 const waLink = (text: string) =>
   `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
 
-const menuImages = import.meta.glob("@/assets/menu/*.png", {
+const menuImages = import.meta.glob("/src/assets/menu/*.png", {
   eager: true,
   import: "default",
 }) as Record<string, string>;
@@ -238,8 +238,8 @@ const LEGACY_MENU: MenuItem[] = [
   { name: "Sprite 600ml", desc: "Lima-limón bien helada.", image: "bebidas-sprite-600ml.png", category: "bebidas" },
   { name: "Andes Rubia", desc: "Cerveza rubia, la compañera ideal.", image: "bebidas-andes-rubia.png", tag: "+18", category: "bebidas" },
   // Promos
-  { name: "Promo Sábado", desc: "La promo del sábado: consultanos el combo de la semana.", image: "burguers-fritas-promos-promo-sbado.png", tag: "Sábados", tagHot: true, category: "promos" },
-  { name: "Promo Domingo", desc: "El domingo se pide en familia: consultanos el combo.", image: "burguers-fritas-promos-promo-domingo.png", tag: "Domingos", tagHot: true, category: "promos" },
+  { name: "Promo Sábado Cheeseburger Doble", desc: "Cheeseburger doble con cheddar. $14.500 c/u. Delivery: mínimo 2 unidades.", image: "burguers-fritas-promos-promo-sbado.png", tag: "Sábados · $14.500 c/u", tagHot: true, price: 14500, promoDays: [6], category: "promos" },
+  { name: "Promo Domingo Gran Tasty Doble", desc: "Gran Tasty doble con papas fritas. $14.999 c/u. Delivery: mínimo 2 unidades.", image: "burguers-fritas-promos-promo-domingo.png", tag: "Domingos · $14.999 c/u", tagHot: true, price: 14999, promoDays: [0], category: "promos" },
 ];
 
 function WhatsAppIcon({ className }: { className?: string }) {
