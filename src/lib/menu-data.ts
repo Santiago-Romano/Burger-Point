@@ -678,7 +678,7 @@ export const DEFAULT_MENU: MenuItem[] = [
   {
     name: "Promo Jueves Burger Point Doble",
     desc: "Burger Point doble con cheddar, panceta, cebolla caramelizada y papas fritas. $14.500 c/u. Delivery: mínimo 2 unidades.",
-    image: "Promos jueves.png",
+    image: "promo-jueves.png",
     tag: "Jueves · $14.500 c/u",
     tagHot: true,
     price: 14500,
@@ -688,7 +688,7 @@ export const DEFAULT_MENU: MenuItem[] = [
   {
     name: "Promo Sábado Cheeseburger Doble",
     desc: "Cheeseburger doble con cheddar. $14.500 c/u. Delivery: mínimo 2 unidades.",
-    image: "burguers-fritas-promos-promo-sbado.png",
+    image: "promo-sabado.png",
     tag: "Sábados · $14.500 c/u",
     tagHot: true,
     price: 14500,
@@ -698,7 +698,7 @@ export const DEFAULT_MENU: MenuItem[] = [
   {
     name: "Promo Domingo Gran Tasty Doble",
     desc: "Gran Tasty doble con papas fritas. $14.999 c/u. Delivery: mínimo 2 unidades.",
-    image: "burguers-fritas-promos-promo-domingo.png",
+    image: "promo-domingo.png",
     tag: "Domingos · $14.999 c/u",
     tagHot: true,
     price: 14999,

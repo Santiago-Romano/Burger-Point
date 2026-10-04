@@ -238,8 +238,8 @@ const LEGACY_MENU: MenuItem[] = [
   { name: "Sprite 600ml", desc: "Lima-limón bien helada.", image: "bebidas-sprite-600ml.png", category: "bebidas" },
   { name: "Andes Rubia", desc: "Cerveza rubia, la compañera ideal.", image: "bebidas-andes-rubia.png", tag: "+18", category: "bebidas" },
   // Promos
-  { name: "Promo Sábado Cheeseburger Doble", desc: "Cheeseburger doble con cheddar. $14.500 c/u. Delivery: mínimo 2 unidades.", image: "burguers-fritas-promos-promo-sbado.png", tag: "Sábados · $14.500 c/u", tagHot: true, price: 14500, promoDays: [6], category: "promos" },
-  { name: "Promo Domingo Gran Tasty Doble", desc: "Gran Tasty doble con papas fritas. $14.999 c/u. Delivery: mínimo 2 unidades.", image: "burguers-fritas-promos-promo-domingo.png", tag: "Domingos · $14.999 c/u", tagHot: true, price: 14999, promoDays: [0], category: "promos" },
+  { name: "Promo Sábado Cheeseburger Doble", desc: "Cheeseburger doble con cheddar. $14.500 c/u. Delivery: mínimo 2 unidades.", image: "promo-sabado.png", tag: "Sábados · $14.500 c/u", tagHot: true, price: 14500, promoDays: [6], category: "promos" },
+  { name: "Promo Domingo Gran Tasty Doble", desc: "Gran Tasty doble con papas fritas. $14.999 c/u. Delivery: mínimo 2 unidades.", image: "promo-domingo.png", tag: "Domingos · $14.999 c/u", tagHot: true, price: 14999, promoDays: [0], category: "promos" },
 ];
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -413,7 +413,11 @@ function MenuCard({ item }: { item: MenuItem }) {
             <img
               src={img(displayImage)}
               alt={displayName}
-              className="aspect-[4/3] w-full rounded-xl bg-ink-3 object-cover ring-1 ring-white/10"
+              className={`mx-auto block max-w-full rounded-xl bg-ink-3 ring-1 ring-white/10 ${
+                item.category === "promos"
+                  ? "max-h-[55vh] object-contain"
+                  : "aspect-[4/3] w-full object-cover"
+              }`}
             />
 
             <p className="mt-4 text-sm text-pretty text-cream-dim">{displayDesc}</p>
