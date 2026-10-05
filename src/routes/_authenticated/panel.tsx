@@ -160,28 +160,53 @@ function Panel() {
         });
   };
 
-  const deleteOrders = async (ids: string[], description: string) => {
-    if (deletingOrders || ids.length === 0) return;
-    if (
-      !window.confirm(
-        `Vas a eliminar permanentemente ${ids.length} ${description}. Esta acción no se puede deshacer. ¿Continuar?`,
-      )
-    )
-      return;
-
+  const deleteOrders = async (status?: Status) => {
+    if (deletingOrders) return;
     setDeleteError("");
     setDeletingOrders(true);
+    const deletedIds: string[] = [];
     try {
-      const { error } = await supabase.from("orders").delete().in("id", ids);
-      if (error) {
-        setDeleteError(`No se pudieron eliminar los pedidos: ${error.message}`);
-        return;
+      const ids: string[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const result = status
+          ? await supabase
+              .from("orders")
+              .select("id")
+              .eq("status", status)
+              .order("created_at", { ascending: false })
+              .range(offset, offset + 499)
+          : await supabase
+              .from("orders")
+              .select("id")
+              .order("created_at", { ascending: false })
+              .range(offset, offset + 499);
+        if (result.error) throw new Error(result.error.message);
+        ids.push(...(result.data ?? []).map((order) => order.id));
+        if (!result.data || result.data.length < 500) break;
       }
-      const deletedIds = new Set(ids);
-      setOrders((prev) => prev.filter((order) => !deletedIds.has(order.id)));
+      if (ids.length === 0) return;
+
+      const description = status
+        ? `pedidos de "${STATUS.find((item) => item.id === status)!.label}"`
+        : "pedidos de todos los estados";
+      if (
+        !window.confirm(
+          `Vas a eliminar permanentemente ${ids.length} ${description}, incluidos registros antiguos fuera del panel. Esta acción no se puede deshacer. ¿Continuar?`,
+        )
+      )
+        return;
+
+      for (let offset = 0; offset < ids.length; offset += 100) {
+        const batch = ids.slice(offset, offset + 100);
+        const { error } = await supabase.from("orders").delete().in("id", batch);
+        if (error) throw new Error(error.message);
+        deletedIds.push(...batch);
+        const deletedBatchIds = new Set(batch);
+        setOrders((prev) => prev.filter((order) => !deletedBatchIds.has(order.id)));
+      }
     } catch (error) {
       setDeleteError(
-        `No se pudieron eliminar los pedidos: ${error instanceof Error ? error.message : "error desconocido"}`,
+        `${deletedIds.length ? `Se eliminaron ${deletedIds.length} pedidos; ` : ""}No se pudieron completar los borrados: ${error instanceof Error ? error.message : "error desconocido"}`,
       );
     } finally {
       setDeletingOrders(false);
@@ -337,31 +362,21 @@ function Panel() {
             <div className="flex flex-wrap items-center gap-2 px-5 pb-4">
               <button
                 type="button"
-                disabled={deletingOrders || list.length === 0}
-                onClick={() =>
-                  void deleteOrders(
-                    list.map((order) => order.id),
-                    `pedidos de "${STATUS.find((status) => status.id === tab)!.label}"`,
-                  )
-                }
+                disabled={deletingOrders}
+                onClick={() => void deleteOrders(tab)}
                 className="rounded-full px-4 py-2 text-sm text-cream-dim ring-1 ring-white/15 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {deletingOrders
                   ? "Eliminando…"
-                  : `Eliminar todos los ${STATUS.find((status) => status.id === tab)!.label.toLowerCase()} (${list.length})`}
+                  : `Eliminar todos los ${STATUS.find((status) => status.id === tab)!.label.toLowerCase()}`}
               </button>
               <button
                 type="button"
-                disabled={deletingOrders || orders.length === 0}
-                onClick={() =>
-                  void deleteOrders(
-                    orders.map((order) => order.id),
-                    "pedidos visibles",
-                  )
-                }
+                disabled={deletingOrders}
+                onClick={() => void deleteOrders()}
                 className="rounded-full px-4 py-2 text-sm text-red-300 ring-1 ring-red-400/30 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Eliminar todos los pedidos visibles ({orders.length})
+                Eliminar todos los pedidos
               </button>
             </div>
             {deleteError && (
