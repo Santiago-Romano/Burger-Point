@@ -3,6 +3,7 @@ import {
   DEFAULT_MENU,
   DEFAULT_SAUCES,
   MENU_CATEGORIES,
+  type MenuExtra,
   type MenuItem,
   type MenuVariant,
 } from "@/lib/menu-data";
@@ -26,6 +27,8 @@ const weekdays = [
   { day: 0, label: "Dom" },
 ];
 const categoryFilters = [{ id: "all", label: "Todas" }, ...MENU_CATEGORIES] as const;
+type MenuItemPatch = { [K in keyof MenuItem]?: MenuItem[K] | undefined };
+type MenuVariantPatch = { [K in keyof MenuVariant]?: MenuVariant[K] | undefined };
 
 const imageSrc = (image: string) =>
   image.startsWith("http") || image.startsWith("/")
@@ -69,16 +72,18 @@ export function MenuManager() {
     .map((menuItem, index) => ({ menuItem, index }))
     .filter(({ menuItem }) => category === "all" || menuItem.category === category);
 
-  const updateItem = (patch: Partial<MenuItem>) => {
+  const updateItem = (patch: MenuItemPatch) => {
     setItems((current) =>
-      current.map((entry, index) => (index === selectedIndex ? { ...entry, ...patch } : entry)),
+      current.map((entry, index) =>
+        index === selectedIndex ? ({ ...entry, ...patch } as MenuItem) : entry,
+      ),
     );
   };
 
-  const updateVariant = (variantIndex: number, patch: Partial<MenuVariant>) => {
+  const updateVariant = (variantIndex: number, patch: MenuVariantPatch) => {
     if (!item) return;
     const variants = [...(item.variants ?? [])];
-    variants[variantIndex] = { ...variants[variantIndex]!, ...patch };
+    variants[variantIndex] = { ...variants[variantIndex]!, ...patch } as MenuVariant;
     updateItem({ variants });
   };
 
@@ -535,13 +540,13 @@ export function MenuManager() {
                             updateItem({
                               extras: item.extras?.map((entry, extraIndex) =>
                                 extraIndex === index
-                                  ? {
+                                  ? ({
                                       ...entry,
                                       price:
                                         event.target.value === ""
                                           ? undefined
                                           : Number(event.target.value),
-                                    }
+                                    } as MenuExtra)
                                   : entry,
                               ),
                             })

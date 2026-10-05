@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useRef, useState } from "react";
 import { itemLine, useCart } from "@/lib/cart";
+import { submitOrder } from "@/lib/order-submit";
 
 const WHATSAPP = "5491162118588";
 const ZONAS = ["Ituzaingó", "Castelar", "Padua", "Udaondo", "Villa Tesei"];
@@ -21,6 +21,7 @@ export function CartDrawer() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const submissionKey = useRef<string | null>(null);
 
   if (!open) return null;
 
@@ -32,9 +33,11 @@ export function CartDrawer() {
     if (phone.replace(/\D/g, "").length < 8) return setError("Ingresá un teléfono válido.");
     if (tipo === "delivery" && address.trim().length < 4) return setError("Ingresá la dirección.");
 
+    const clientOrderId = submissionKey.current ?? crypto.randomUUID();
+    submissionKey.current = clientOrderId;
     setSending(true);
-    const win = window.open("", "_blank");
-    const { error: dbError } = await supabase.from("orders").insert({
+    const { error: dbError } = await submitOrder({
+      client_order_id: clientOrderId,
       customer_name: name.trim().slice(0, 100),
       phone: phone.trim().slice(0, 30),
       delivery_type: tipo,
@@ -42,13 +45,19 @@ export function CartDrawer() {
       zone: tipo === "delivery" ? zone : null,
       payment,
       notes: notes.trim().slice(0, 500) || null,
-      items: items.map(({ name, extras, salsa, qty, unitPrice }) => ({ name, extras, salsa: salsa ?? null, qty, unit_price: unitPrice ?? null })),
+      items: items.map(({ name, extras, salsa, qty, unitPrice }) => ({
+        name,
+        extras,
+        salsa: salsa ?? null,
+        qty,
+        unit_price: unitPrice ?? null,
+      })),
     });
     setSending(false);
-    if (dbError) {
-      win?.close();
-      return setError("No pudimos registrar el pedido. Probá de nuevo o escribinos por WhatsApp.");
-    }
+    if (dbError)
+      return setError(
+        "No pudimos registrar el pedido. Probá nuevamente en unos segundos; el reintento no va a duplicarlo.",
+      );
 
     const msg = [
       "Hola Burger Point, hice este pedido desde la web:",
@@ -63,9 +72,10 @@ export function CartDrawer() {
       .filter(Boolean)
       .join("\n");
     const url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
-    if (win) win.location.href = url;
-    else window.location.href = url;
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) window.location.href = url;
     clear();
+    submissionKey.current = null;
     setDone(true);
   };
 
@@ -75,7 +85,10 @@ export function CartDrawer() {
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex justify-end bg-ink/80 backdrop-blur-sm" onClick={close}>
+    <div
+      className="fixed inset-0 z-[80] flex justify-end bg-ink/80 backdrop-blur-sm"
+      onClick={close}
+    >
       <aside
         role="dialog"
         aria-label="Tu pedido"
@@ -94,12 +107,16 @@ export function CartDrawer() {
         </div>
 
         {done ? (
-          <div className="mt-10 text-center">
+          <div className="mt-10 text-center" aria-live="polite">
             <p className="font-display text-4xl text-ember">¡PEDIDO ENVIADO!</p>
             <p className="mt-3 text-cream-dim">
-              Ya lo recibimos en el local. Te escribimos por WhatsApp para confirmar.
+              Lo registramos en el panel del local. WhatsApp se abrió para coordinar la
+              confirmación.
             </p>
-            <button onClick={close} className="mt-8 rounded-full bg-ember px-6 py-3 font-semibold text-ink">
+            <button
+              onClick={close}
+              className="mt-8 rounded-full bg-ember px-6 py-3 font-semibold text-ink"
+            >
               Seguir viendo el menú
             </button>
           </div>
@@ -110,17 +127,38 @@ export function CartDrawer() {
             ) : (
               <ul className="mt-5 space-y-2">
                 {items.map((i) => (
-                  <li key={i.key} className="flex items-start justify-between gap-3 rounded-xl bg-ink p-3 ring-1 ring-white/10">
+                  <li
+                    key={i.key}
+                    className="flex items-start justify-between gap-3 rounded-xl bg-ink p-3 ring-1 ring-white/10"
+                  >
                     <div className="text-sm">
                       <p className="font-semibold">{i.name}</p>
-                      {i.unitPrice != null && <p className="font-mono text-ember">$ {i.unitPrice.toLocaleString("es-AR")} c/u</p>}
-                      {i.extras.length > 0 && <p className="text-cream-dim">+ {i.extras.join(", ")}</p>}
+                      {i.unitPrice != null && (
+                        <p className="font-mono text-ember">
+                          $ {i.unitPrice.toLocaleString("es-AR")} c/u
+                        </p>
+                      )}
+                      {i.extras.length > 0 && (
+                        <p className="text-cream-dim">+ {i.extras.join(", ")}</p>
+                      )}
                       {i.salsa && <p className="text-cream-dim">Salsa: {i.salsa}</p>}
                     </div>
                     <div className="flex shrink-0 items-center gap-2 font-mono">
-                      <button aria-label="Quitar uno" onClick={() => setQty(i.key, i.qty - 1)} className="size-7 rounded-full ring-1 ring-white/15">−</button>
+                      <button
+                        aria-label="Quitar uno"
+                        onClick={() => setQty(i.key, i.qty - 1)}
+                        className="size-7 rounded-full ring-1 ring-white/15"
+                      >
+                        −
+                      </button>
                       <span className="w-5 text-center">{i.qty}</span>
-                      <button aria-label="Sumar uno" onClick={() => setQty(i.key, i.qty + 1)} className="size-7 rounded-full ring-1 ring-white/15">+</button>
+                      <button
+                        aria-label="Sumar uno"
+                        onClick={() => setQty(i.key, i.qty + 1)}
+                        className="size-7 rounded-full ring-1 ring-white/15"
+                      >
+                        +
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -128,8 +166,21 @@ export function CartDrawer() {
             )}
 
             <form onSubmit={submit} className="mt-6 space-y-3">
-              <input className={field} placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />
-              <input className={field} placeholder="Teléfono / WhatsApp" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={30} inputMode="tel" />
+              <input
+                className={field}
+                placeholder="Tu nombre"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={100}
+              />
+              <input
+                className={field}
+                placeholder="Teléfono / WhatsApp"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                maxLength={30}
+                inputMode="tel"
+              />
               <div className="flex gap-2 rounded-full bg-ink p-1 ring-1 ring-white/10">
                 {(["delivery", "retiro"] as const).map((t) => (
                   <button
@@ -144,25 +195,50 @@ export function CartDrawer() {
               </div>
               {tipo === "delivery" && (
                 <>
-                  <input className={field} placeholder="Dirección (calle, número, entre calles)" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={200} />
+                  <input
+                    className={field}
+                    placeholder="Dirección (calle, número, entre calles)"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    maxLength={200}
+                  />
                   <select className={field} value={zone} onChange={(e) => setZone(e.target.value)}>
-                    {ZONAS.map((z) => <option key={z}>{z}</option>)}
+                    {ZONAS.map((z) => (
+                      <option key={z}>{z}</option>
+                    ))}
                   </select>
                 </>
               )}
-              <select className={field} value={payment} onChange={(e) => setPayment(e.target.value)}>
-                {PAGOS.map((p) => <option key={p}>{p}</option>)}
+              <select
+                className={field}
+                value={payment}
+                onChange={(e) => setPayment(e.target.value)}
+              >
+                {PAGOS.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
               </select>
-              <textarea className={field} rows={2} placeholder="Notas (opcional)" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
-              {error && <p className="text-sm text-ember">{error}</p>}
+              <textarea
+                className={field}
+                rows={2}
+                placeholder="Notas (opcional)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                maxLength={500}
+              />
+              {error && (
+                <p className="text-sm text-ember" role="alert">
+                  {error}
+                </p>
+              )}
               <button
                 disabled={sending || items.length === 0}
                 className="w-full rounded-full bg-ember py-3.5 font-semibold text-ink disabled:opacity-50"
               >
-                {sending ? "Enviando…" : "Confirmar pedido"}
+                {sending ? "Registrando y reintentando…" : "Confirmar pedido"}
               </button>
               <p className="text-center text-xs text-cream-dim">
-                El pedido llega al local y se abre WhatsApp para confirmarlo.
+                Si la conexión falla, reintentamos sin crear pedidos duplicados.
               </p>
             </form>
           </>
