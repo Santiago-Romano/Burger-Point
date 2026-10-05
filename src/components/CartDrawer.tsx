@@ -36,7 +36,7 @@ export function CartDrawer() {
     const clientOrderId = submissionKey.current ?? crypto.randomUUID();
     submissionKey.current = clientOrderId;
     setSending(true);
-    const { error: dbError } = await submitOrder({
+    const { error: dbError, retrySafe } = await submitOrder({
       client_order_id: clientOrderId,
       customer_name: name.trim().slice(0, 100),
       phone: phone.trim().slice(0, 30),
@@ -56,7 +56,9 @@ export function CartDrawer() {
     setSending(false);
     if (dbError)
       return setError(
-        "No pudimos registrar el pedido. Probá nuevamente en unos segundos; el reintento no va a duplicarlo.",
+        retrySafe
+          ? "No pudimos registrar el pedido. Probá nuevamente en unos segundos; el reintento no va a duplicarlo."
+          : "No pudimos confirmar el pedido. Antes de volver a intentarlo, consultá al local para evitar duplicarlo.",
       );
 
     const msg = [
