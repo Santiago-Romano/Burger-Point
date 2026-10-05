@@ -21,7 +21,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 const field = "w-full rounded-lg bg-ink px-3 py-3 text-sm text-cream ring-1 ring-white/15 outline-none focus:ring-ember";
-const passwordResetRedirect = "https://burger-point-demo.netlify.app/auth?reset=1";
+const passwordResetRedirect = () => `${window.location.origin}/auth?reset=1`;
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -49,7 +49,7 @@ function AuthPage() {
     setBusy(true);
     if (mode === "forgot") {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: passwordResetRedirect,
+        redirectTo: passwordResetRedirect(),
       });
       setBusy(false);
       if (error) return setMsg(error.message);
