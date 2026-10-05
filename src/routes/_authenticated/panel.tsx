@@ -84,6 +84,8 @@ function Panel() {
     "reconectando",
   );
   const [refreshing, setRefreshing] = useState(false);
+  const [deletingOrders, setDeletingOrders] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     const w = localStorage.getItem("bp-print-width");
@@ -156,6 +158,34 @@ function Panel() {
         .then(({ data }) => {
           if (data) setOrders((prev) => prev.map((x) => (x.id === o.id ? data : x)));
         });
+  };
+
+  const deleteOrders = async (ids: string[], description: string) => {
+    if (deletingOrders || ids.length === 0) return;
+    if (
+      !window.confirm(
+        `Vas a eliminar permanentemente ${ids.length} ${description}. Esta acción no se puede deshacer. ¿Continuar?`,
+      )
+    )
+      return;
+
+    setDeleteError("");
+    setDeletingOrders(true);
+    try {
+      const { error } = await supabase.from("orders").delete().in("id", ids);
+      if (error) {
+        setDeleteError(`No se pudieron eliminar los pedidos: ${error.message}`);
+        return;
+      }
+      const deletedIds = new Set(ids);
+      setOrders((prev) => prev.filter((order) => !deletedIds.has(order.id)));
+    } catch (error) {
+      setDeleteError(
+        `No se pudieron eliminar los pedidos: ${error instanceof Error ? error.message : "error desconocido"}`,
+      );
+    } finally {
+      setDeletingOrders(false);
+    }
   };
 
   const beginEdit = (o: Order) => {
@@ -303,6 +333,45 @@ function Panel() {
                 );
               })}
             </nav>
+
+            <div className="flex flex-wrap items-center gap-2 px-5 pb-4">
+              <button
+                type="button"
+                disabled={deletingOrders || list.length === 0}
+                onClick={() =>
+                  void deleteOrders(
+                    list.map((order) => order.id),
+                    `pedidos de "${STATUS.find((status) => status.id === tab)!.label}"`,
+                  )
+                }
+                className="rounded-full px-4 py-2 text-sm text-cream-dim ring-1 ring-white/15 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingOrders
+                  ? "Eliminando…"
+                  : `Eliminar todos los ${STATUS.find((status) => status.id === tab)!.label.toLowerCase()} (${list.length})`}
+              </button>
+              <button
+                type="button"
+                disabled={deletingOrders || orders.length === 0}
+                onClick={() =>
+                  void deleteOrders(
+                    orders.map((order) => order.id),
+                    "pedidos visibles",
+                  )
+                }
+                className="rounded-full px-4 py-2 text-sm text-red-300 ring-1 ring-red-400/30 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Eliminar todos los pedidos visibles ({orders.length})
+              </button>
+            </div>
+            {deleteError && (
+              <p
+                className="mx-5 mb-4 rounded-lg bg-red-400/10 p-3 text-sm text-red-200"
+                role="alert"
+              >
+                {deleteError}
+              </p>
+            )}
 
             <main className="grid gap-4 px-5 pb-10 md:grid-cols-2 xl:grid-cols-3">
               {list.length === 0 && <p className="text-cream-dim">No hay pedidos acá.</p>}
