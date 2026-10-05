@@ -362,6 +362,17 @@ function MenuCard({ item }: { item: MenuItem }) {
             <span aria-hidden>{canCustomize ? "＋" : "↗"}</span>
             {canCustomize ? "Personalizar" : "Ver producto"}
           </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              addToCart();
+            }}
+            className="inline-flex items-center gap-2 rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-ember-soft"
+          >
+            <span aria-hidden>＋</span>
+            Agregar al pedido
+          </button>
           <a
             href={waHref}
             target="_blank"

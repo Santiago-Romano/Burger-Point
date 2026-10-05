@@ -1,8 +1,7 @@
 import { useRef, useState } from "react";
-import { itemLine, useCart } from "@/lib/cart";
+import { useCart } from "@/lib/cart";
 import { submitOrder } from "@/lib/order-submit";
 
-const WHATSAPP = "5491162118588";
 const ZONAS = ["Ituzaingó", "Castelar", "Padua", "Udaondo", "Villa Tesei"];
 const PAGOS = ["Efectivo", "Tarjeta", "Mercado Pago", "Transferencia"];
 
@@ -61,21 +60,6 @@ export function CartDrawer() {
           : "No pudimos confirmar el pedido. Antes de volver a intentarlo, consultá al local para evitar duplicarlo.",
       );
 
-    const msg = [
-      "Hola Burger Point, hice este pedido desde la web:",
-      ...items.map(itemLine),
-      "",
-      `Nombre: ${name}`,
-      `Tel: ${phone}`,
-      tipo === "delivery" ? `Delivery: ${address} (${zone})` : "Retiro en el local",
-      `Pago: ${payment}`,
-      notes ? `Notas: ${notes}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-    const url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
-    const win = window.open(url, "_blank", "noopener,noreferrer");
-    if (!win) window.location.href = url;
     clear();
     submissionKey.current = null;
     setDone(true);
@@ -110,10 +94,9 @@ export function CartDrawer() {
 
         {done ? (
           <div className="mt-10 text-center" aria-live="polite">
-            <p className="font-display text-4xl text-ember">¡PEDIDO ENVIADO!</p>
+            <p className="font-display text-4xl text-ember">¡PEDIDO REGISTRADO!</p>
             <p className="mt-3 text-cream-dim">
-              Lo registramos en el panel del local. WhatsApp se abrió para coordinar la
-              confirmación.
+              El pedido quedó registrado en el panel, sin enviarlo a WhatsApp.
             </p>
             <button
               onClick={close}
