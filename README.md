@@ -10,9 +10,11 @@ Smash burger ordering site and order-management panel.
 
 Apply the database migrations in `supabase/migrations` to the Supabase project before using authentication, orders, or menu management.
 
-## Cloudflare deployment
+## Netlify deployment
 
-`npm run build` creates a Cloudflare Workers build. Configure the Supabase environment variables as Worker secrets, then deploy the prebuilt output with `npx nitro deploy --prebuilt`.
+The project uses the TanStack Start Netlify Vite plugin to deploy server rendering and server functions to Netlify. Connect the repository to Netlify and use the build command and publish directory in `netlify.toml` (`bun run build` and `dist/client`).
+
+Configure the required Supabase and cron environment variables in Netlify using `.env.example` as a reference. Keep service-role keys in Netlify's environment settings; never commit them.
 
 ## Order reliability
 
@@ -28,7 +30,7 @@ print an order at 58 mm or 80 mm.
 
 ## Production checklist
 
-- Configure Cloudflare Worker secrets; never commit `.env` or service-role keys.
+- Configure Netlify environment variables; never commit `.env` or service-role keys.
 - Configure Supabase backups and alerts for database/API errors.
 - Add an external uptime and error monitor for the Worker and Supabase.
 - Test the actual 58/80 mm printer, browser print scale, margins and paper cut.
@@ -37,5 +39,5 @@ print an order at 58 mm or 80 mm.
   periodic refresh recover orders after a browser/network interruption.
 
 The project cannot guarantee an SLA, queue capacity or printer behavior from
-code alone; those depend on the selected Cloudflare/Supabase plans and the
+code alone; those depend on the selected Netlify/Supabase plans and the
 local hardware configuration.

@@ -1,11 +1,11 @@
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import netlify from "@netlify/vite-plugin-tanstack-start";
 import react from "@vitejs/plugin-react";
-import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-export default defineConfig(({ command }) => ({
+export default defineConfig({
   plugins: [
     tailwindcss(),
     tsconfigPaths({ projects: ["./tsconfig.json"] }),
@@ -16,15 +16,8 @@ export default defineConfig(({ command }) => ({
       },
       server: { entry: "server" },
     }),
-    ...(command === "build"
-      ? [
-          nitro({
-            preset: "cloudflare-module",
-            cloudflare: { nodeCompat: true, deployConfig: true },
-          }),
-        ]
-      : []),
     react(),
+    netlify(),
   ],
   resolve: {
     dedupe: [
@@ -37,4 +30,4 @@ export default defineConfig(({ command }) => ({
     ],
   },
   server: { host: "::", port: 8080 },
-}));
+});
