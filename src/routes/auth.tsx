@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>) => ({
-    reset: search.reset === "1",
+    reset: search.reset === true || String(search.reset) === "1",
   }),
   head: () => ({
     meta: [
