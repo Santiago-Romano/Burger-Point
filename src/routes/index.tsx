@@ -803,9 +803,9 @@ function IndexInner() {
 
         {/* marquee */}
         <div className="overflow-hidden border-y border-white/10 py-3">
-          <div className="animate-marquee flex whitespace-nowrap font-display text-2xl tracking-wide text-cream/25">
+          <div className="animate-marquee flex w-max whitespace-nowrap font-display text-2xl tracking-wide text-cream/25">
             {[0, 1].map((n) => (
-              <span key={n} className="flex">
+              <div key={n} aria-hidden={n === 1} className="flex shrink-0">
                 <span className="px-6">SMASH BURGERS</span>
                 <span className="text-ember">◆</span>
                 <span className="px-6">FRITAS CRUJIENTES</span>
@@ -814,7 +814,7 @@ function IndexInner() {
                 <span className="text-ember">◆</span>
                 <span className="px-6">DELIVERY EN ITUZAINGÓ</span>
                 <span className="text-ember">◆</span>
-              </span>
+              </div>
             ))}
           </div>
         </div>
