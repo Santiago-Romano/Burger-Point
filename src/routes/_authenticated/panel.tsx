@@ -24,7 +24,10 @@ export const Route = createFileRoute("/_authenticated/panel")({
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type Status = Database["public"]["Enums"]["order_status"];
-type AdminAccessRequest = Database["public"]["Functions"]["list_admin_access_requests"]["Returns"][number];
+type AdminAccessRequest =
+  Database["public"]["Functions"]["list_admin_access_requests"]["Returns"][number];
+type AdminAccessUser =
+  Database["public"]["Functions"]["list_admin_access_users"]["Returns"][number];
 type AdminAccessStatus = "approved" | "pending" | "rejected" | "none";
 interface Item {
   name: string;
@@ -70,9 +73,12 @@ function Panel() {
   const [accessStatus, setAccessStatus] = useState<AdminAccessStatus | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [accessRequests, setAccessRequests] = useState<AdminAccessRequest[]>([]);
+  const [accessUsers, setAccessUsers] = useState<AdminAccessUser[]>([]);
   const [accessRequestsLoading, setAccessRequestsLoading] = useState(false);
   const [accessRequestsError, setAccessRequestsError] = useState("");
   const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null);
+  const [updatingUserAccessId, setUpdatingUserAccessId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [accessRequestsReload, setAccessRequestsReload] = useState(0);
   const [tab, setTab] = useState<Status>("nuevo");
   const [printing, setPrinting] = useState<Order | null>(null);
@@ -100,6 +106,10 @@ function Panel() {
     const w = localStorage.getItem("bp-print-width");
     if (w === "58mm" || w === "80mm") setWidth(w);
     const checkAccess = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!active) return;
+      setCurrentUserId(authData.user?.id ?? null);
+
       const { data: isAdmin, error } = await supabase.rpc("claim_admin");
       if (!active) return;
       if (!error && isAdmin) {
@@ -111,9 +121,7 @@ function Panel() {
       const { data: status } = await supabase.rpc("get_admin_access_status");
       if (!active) return;
       setAccessStatus(
-        status === "pending" || status === "rejected" || status === "approved"
-          ? status
-          : "none",
+        status === "pending" || status === "rejected" || status === "approved" ? status : "none",
       );
       setAllowed(false);
     };
@@ -128,12 +136,24 @@ function Panel() {
     let active = true;
     setAccessRequestsLoading(true);
     setAccessRequestsError("");
-    supabase.rpc("list_admin_access_requests").then(({ data, error }) => {
+    Promise.all([
+      supabase.rpc("list_admin_access_requests"),
+      supabase.rpc("list_admin_access_users"),
+    ]).then(([requestsResult, usersResult]) => {
       if (!active) return;
-      if (error) {
+      if (requestsResult.error) {
         setAccessRequestsError("No se pudieron cargar las solicitudes de acceso.");
       } else {
-        setAccessRequests(data ?? []);
+        setAccessRequests(requestsResult.data ?? []);
+      }
+      if (usersResult.error) {
+        setAccessRequestsError((message) =>
+          message
+            ? `${message} Tampoco se pudo cargar la lista de usuarios.`
+            : "No se pudo cargar la lista de usuarios.",
+        );
+      } else {
+        setAccessUsers(usersResult.data ?? []);
       }
       setAccessRequestsLoading(false);
     });
@@ -226,10 +246,52 @@ function Panel() {
         return;
       }
       setAccessRequests((current) => current.filter((request) => request.user_id !== userId));
+      setAccessRequestsReload((count) => count + 1);
     } catch {
       setAccessRequestsError("No se pudo actualizar la solicitud. Intentá de nuevo.");
     } finally {
       setReviewingRequestId(null);
+    }
+  };
+
+  const changeUserAdminAccess = async (userId: string, isAdmin: boolean) => {
+    setUpdatingUserAccessId(userId);
+    setAccessRequestsError("");
+    try {
+      const { data, error } = await supabase.rpc("set_admin_user_access", {
+        _user_id: userId,
+        _is_admin: isAdmin,
+      });
+      if (error) {
+        const message = error.message.toLowerCase();
+        setAccessRequestsError(
+          message.includes("last admin")
+            ? "No se puede quitar el permiso al único administrador."
+            : message.includes("own admin access")
+              ? "No podés quitarte el permiso de administrador a tu propia cuenta."
+              : "No se pudo modificar el permiso. Revisá tu conexión e intentá de nuevo.",
+        );
+        return;
+      }
+      if (!data) {
+        setAccessRequestsError("No se encontró esa cuenta. Actualizá la lista.");
+        return;
+      }
+      setAccessUsers((users) =>
+        users.map((user) =>
+          user.user_id === userId
+            ? { ...user, is_admin: isAdmin, request_status: isAdmin ? "approved" : "rejected" }
+            : user,
+        ),
+      );
+      setAccessRequests((requests) => requests.filter((request) => request.user_id !== userId));
+      setAccessRequestsReload((count) => count + 1);
+    } catch {
+      setAccessRequestsError(
+        "No se pudo modificar el permiso. Revisá tu conexión e intentá de nuevo.",
+      );
+    } finally {
+      setUpdatingUserAccessId(null);
     }
   };
 
@@ -453,7 +515,10 @@ function Panel() {
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ember">
                   Administración
                 </p>
-                <h1 className="mt-1 font-display text-4xl">Solicitudes de acceso</h1>
+                <h1 className="mt-1 font-display text-4xl">Accesos del local</h1>
+                <p className="mt-2 text-sm text-cream-dim">
+                  Revisá solicitudes y administrá los permisos de las cuentas registradas.
+                </p>
               </div>
               <button
                 onClick={() => setAccessRequestsReload((count) => count + 1)}
@@ -468,45 +533,113 @@ function Panel() {
                 {accessRequestsError}
               </p>
             )}
-            {accessRequestsLoading && accessRequests.length === 0 ? (
-              <p className="text-cream-dim">Cargando solicitudes…</p>
-            ) : accessRequests.length === 0 ? (
-              <p className="rounded-xl border border-white/10 p-6 text-cream-dim">
-                No hay solicitudes pendientes.
-              </p>
-            ) : (
-              <div className="grid gap-3">
-                {accessRequests.map((request) => (
-                  <article
-                    key={request.user_id}
-                    className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-ink-2 p-4 ring-1 ring-white/10"
-                  >
-                    <div className="min-w-0">
-                      <p className="break-all font-semibold">{request.email ?? "Sin email"}</p>
-                      <p className="mt-1 text-sm text-cream-dim">
-                        Solicitó acceso el {new Date(request.requested_at).toLocaleString("es-AR")}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => void reviewAccessRequest(request.user_id, false)}
-                        disabled={reviewingRequestId !== null}
-                        className="rounded-full border border-white/15 px-4 py-2 text-sm text-cream-dim hover:text-cream disabled:opacity-50"
-                      >
-                        Rechazar
-                      </button>
-                      <button
-                        onClick={() => void reviewAccessRequest(request.user_id, true)}
-                        disabled={reviewingRequestId !== null}
-                        className="rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
-                      >
-                        {reviewingRequestId === request.user_id ? "Guardando…" : "Aprobar"}
-                      </button>
-                    </div>
-                  </article>
-                ))}
+            <section>
+              <h2 className="mb-3 font-display text-2xl">Solicitudes pendientes</h2>
+              {accessRequestsLoading && accessRequests.length === 0 ? (
+                <p className="text-cream-dim">Cargando solicitudes…</p>
+              ) : accessRequests.length === 0 ? (
+                <p className="rounded-xl border border-white/10 p-6 text-cream-dim">
+                  No hay solicitudes pendientes.
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {accessRequests.map((request) => (
+                    <article
+                      key={request.user_id}
+                      className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-ink-2 p-4 ring-1 ring-white/10"
+                    >
+                      <div className="min-w-0">
+                        <p className="break-all font-semibold">{request.email ?? "Sin email"}</p>
+                        <p className="mt-1 text-sm text-cream-dim">
+                          Solicitó acceso el{" "}
+                          {new Date(request.requested_at).toLocaleString("es-AR")}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => void reviewAccessRequest(request.user_id, false)}
+                          disabled={reviewingRequestId !== null || updatingUserAccessId !== null}
+                          className="rounded-full border border-white/15 px-4 py-2 text-sm text-cream-dim hover:text-cream disabled:opacity-50"
+                        >
+                          Rechazar
+                        </button>
+                        <button
+                          onClick={() => void reviewAccessRequest(request.user_id, true)}
+                          disabled={reviewingRequestId !== null || updatingUserAccessId !== null}
+                          className="rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+                        >
+                          {reviewingRequestId === request.user_id ? "Guardando…" : "Aprobar"}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="mt-10">
+              <div className="mb-3">
+                <h2 className="font-display text-2xl">Usuarios y permisos</h2>
+                <p className="mt-1 text-sm text-cream-dim">
+                  El permiso de Administrador habilita todas las secciones del panel.
+                </p>
               </div>
-            )}
+              {accessRequestsLoading && accessUsers.length === 0 ? (
+                <p className="text-cream-dim">Cargando usuarios…</p>
+              ) : accessUsers.length === 0 ? (
+                <p className="rounded-xl border border-white/10 p-5 text-cream-dim">
+                  No se encontraron cuentas registradas.
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {accessUsers.map((user) => (
+                    <article
+                      key={user.user_id}
+                      className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-ink-2 p-4 ring-1 ring-white/10"
+                    >
+                      <div className="min-w-0">
+                        <p className="break-all font-semibold">{user.email ?? "Sin email"}</p>
+                        <p className="mt-1 text-sm text-cream-dim">
+                          Cuenta creada el {new Date(user.created_at).toLocaleDateString("es-AR")}
+                          {user.user_id === currentUserId ? " · Tu cuenta" : ""}
+                        </p>
+                        {user.request_status === "pending" && (
+                          <span className="mt-2 inline-flex rounded-full bg-amber-300/10 px-2.5 py-1 text-xs text-amber-200">
+                            Solicitud pendiente
+                          </span>
+                        )}
+                      </div>
+                      <label className="flex items-center gap-3 text-sm text-cream-dim">
+                        <span>Permiso</span>
+                        <select
+                          aria-label={`Permiso para ${user.email ?? "esta cuenta"}`}
+                          value={user.is_admin ? "admin" : "none"}
+                          disabled={updatingUserAccessId !== null || user.user_id === currentUserId}
+                          onChange={(event) => {
+                            const grantAdmin = event.target.value === "admin";
+                            const action = grantAdmin
+                              ? "dar acceso de administrador"
+                              : "quitar el acceso de administrador";
+                            if (
+                              window.confirm(`¿Querés ${action} a ${user.email ?? "esta cuenta"}?`)
+                            ) {
+                              void changeUserAdminAccess(user.user_id, grantAdmin);
+                            }
+                          }}
+                          className="rounded-lg bg-ink px-3 py-2 text-cream ring-1 ring-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <option value="none">Sin acceso</option>
+                          <option value="admin">Administrador</option>
+                        </select>
+                        {updatingUserAccessId === user.user_id && (
+                          <span className="text-xs">Guardando…</span>
+                        )}
+                      </label>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
           </main>
         ) : (
           <>
