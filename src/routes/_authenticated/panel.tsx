@@ -79,7 +79,7 @@ function Panel() {
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [width, setWidth] = useState<"80mm" | "58mm">("80mm");
-  const [view, setView] = useState<"orders" | "menu">("orders");
+  const [view, setView] = useState<"orders" | "menu">("menu");
   const [connection, setConnection] = useState<"conectado" | "reconectando" | "desconectado">(
     "reconectando",
   );
@@ -289,16 +289,16 @@ function Panel() {
           </p>
           <nav className="flex items-center gap-1 rounded-full bg-ink p-1">
             <button
-              onClick={() => setView("orders")}
-              className={`rounded-full px-4 py-2 text-sm ${view === "orders" ? "bg-ember text-ink" : "text-cream-dim"}`}
-            >
-              Pedidos
-            </button>
-            <button
               onClick={() => setView("menu")}
               className={`rounded-full px-4 py-2 text-sm ${view === "menu" ? "bg-ember text-ink" : "text-cream-dim"}`}
             >
               Menú
+            </button>
+            <button
+              onClick={() => setView("orders")}
+              className={`rounded-full px-4 py-2 text-sm ${view === "orders" ? "bg-ember text-ink" : "text-cream-dim"}`}
+            >
+              Pedidos
             </button>
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm">

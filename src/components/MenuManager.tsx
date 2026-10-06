@@ -174,7 +174,38 @@ export function MenuManager() {
         {loading ? (
           <p className="text-cream-dim">Cargando menú…</p>
         ) : (
-          <div className="grid gap-8 md:grid-cols-[250px_minmax(0,1fr)]">
+          <>
+            <nav
+              aria-label="Secciones del menú"
+              className="mb-6 flex gap-2 overflow-x-auto border-b border-white/10 pb-3"
+            >
+              {categoryFilters.map((entry) => {
+                const count =
+                  entry.id === "all"
+                    ? items.length
+                    : items.filter((menuItem) => menuItem.category === entry.id).length;
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    aria-pressed={category === entry.id}
+                    onClick={() => {
+                      setCategory(entry.id);
+                      const firstVisibleIndex = items.findIndex(
+                        (menuItem) => entry.id === "all" || menuItem.category === entry.id,
+                      );
+                      setSelectedIndex(firstVisibleIndex);
+                    }}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${category === entry.id ? "bg-ember text-ink" : "text-cream-dim ring-1 ring-white/10 hover:bg-ink-2 hover:text-cream"}`}
+                  >
+                    {entry.label}
+                    <span className="font-mono text-[10px] opacity-70">{count}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="grid gap-8 md:grid-cols-[250px_minmax(0,1fr)]">
             <aside>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <label className={label}>Productos</label>
@@ -185,37 +216,12 @@ export function MenuManager() {
                   ＋ Agregar
                 </button>
               </div>
-              <nav
-                aria-label="Categorías del menú"
-                className="mb-3 flex gap-1.5 overflow-x-auto pb-2"
-              >
-                {categoryFilters.map((entry) => {
-                  const count =
-                    entry.id === "all"
-                      ? items.length
-                      : items.filter((menuItem) => menuItem.category === entry.id).length;
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      aria-pressed={category === entry.id}
-                      onClick={() => {
-                        setCategory(entry.id);
-                        const firstVisibleIndex = items.findIndex(
-                          (menuItem) => entry.id === "all" || menuItem.category === entry.id,
-                        );
-                        if (firstVisibleIndex >= 0) setSelectedIndex(firstVisibleIndex);
-                      }}
-                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition-colors ${category === entry.id ? "bg-ember text-ink" : "text-cream-dim ring-1 ring-white/10 hover:bg-ink-2 hover:text-cream"}`}
-                    >
-                      {entry.label}
-                      <span className="font-mono text-[10px] opacity-70">{count}</span>
-                    </button>
-                  );
-                })}
-              </nav>
               <div className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
-                {filtered.map(({ menuItem, index }) => (
+                {filtered.length === 0 ? (
+                  <p className="px-3 py-2.5 text-sm text-cream-dim">
+                    No hay productos en esta sección.
+                  </p>
+                ) : filtered.map(({ menuItem, index }) => (
                   <button
                     key={`${index}-${menuItem.name}`}
                     onClick={() => setSelectedIndex(index)}
@@ -243,9 +249,11 @@ export function MenuManager() {
                     <select
                       className={field}
                       value={item.category}
-                      onChange={(event) =>
-                        updateItem({ category: event.target.value as MenuItem["category"] })
-                      }
+                      onChange={(event) => {
+                        const nextCategory = event.target.value as MenuItem["category"];
+                        updateItem({ category: nextCategory });
+                        setCategory(nextCategory);
+                      }}
                     >
                       {MENU_CATEGORIES.map((entry) => (
                         <option key={entry.id} value={entry.id}>
@@ -583,7 +591,8 @@ export function MenuManager() {
             ) : (
               <p className="text-cream-dim">No hay productos en esta categoría.</p>
             )}
-          </div>
+            </div>
+          </>
         )}
       </div>
     </main>
