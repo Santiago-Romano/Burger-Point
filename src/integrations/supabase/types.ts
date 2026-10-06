@@ -99,6 +99,7 @@ export type Database = {
     Functions: {
       claim_admin: { Args: never; Returns: boolean };
       get_admin_access_status: { Args: never; Returns: string };
+      get_panel_access: { Args: never; Returns: string };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];
@@ -120,17 +121,42 @@ export type Database = {
           user_id: string;
         }[];
       };
+      list_access_users: {
+        Args: never;
+        Returns: {
+          created_at: string;
+          email: string | null;
+          request_status: string | null;
+          role: string;
+          user_id: string;
+        }[];
+      };
       review_admin_access_request: {
         Args: { _approve: boolean; _user_id: string };
+        Returns: boolean;
+      };
+      review_user_access_request: {
+        Args: {
+          _approve: boolean;
+          _role: Database["public"]["Enums"]["app_role"] | null;
+          _user_id: string;
+        };
         Returns: boolean;
       };
       set_admin_user_access: {
         Args: { _is_admin: boolean; _user_id: string };
         Returns: boolean;
       };
+      set_user_app_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"] | null;
+          _user_id: string;
+        };
+        Returns: boolean;
+      };
     };
     Enums: {
-      app_role: "admin";
+      app_role: "admin" | "operator";
       order_status: "nuevo" | "en_cocina" | "enviado" | "entregado" | "cancelado";
     };
     CompositeTypes: {
@@ -253,7 +279,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin"],
+      app_role: ["admin", "operator"],
       order_status: ["nuevo", "en_cocina", "enviado", "entregado", "cancelado"],
     },
   },

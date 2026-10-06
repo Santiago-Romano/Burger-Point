@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { MenuManager } from "@/components/MenuManager";
+import { deleteUserAccount } from "@/lib/delete-user.functions";
 
 export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({
@@ -26,9 +28,9 @@ type Order = Database["public"]["Tables"]["orders"]["Row"];
 type Status = Database["public"]["Enums"]["order_status"];
 type AdminAccessRequest =
   Database["public"]["Functions"]["list_admin_access_requests"]["Returns"][number];
-type AdminAccessUser =
-  Database["public"]["Functions"]["list_admin_access_users"]["Returns"][number];
-type AdminAccessStatus = "approved" | "pending" | "rejected" | "none";
+type AdminAccessUser = Database["public"]["Functions"]["list_access_users"]["Returns"][number];
+type UserRole = Database["public"]["Enums"]["app_role"];
+type AdminAccessStatus = "pending" | "rejected" | "none";
 interface Item {
   name: string;
   extras: string[];
@@ -69,7 +71,9 @@ const time = (d: string) =>
 
 function Panel() {
   const navigate = useNavigate();
+  const deleteUserAccountFn = useServerFn(deleteUserAccount);
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [accessRole, setAccessRole] = useState<UserRole | null>(null);
   const [accessStatus, setAccessStatus] = useState<AdminAccessStatus | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [accessRequests, setAccessRequests] = useState<AdminAccessRequest[]>([]);
@@ -78,6 +82,7 @@ function Panel() {
   const [accessRequestsError, setAccessRequestsError] = useState("");
   const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null);
   const [updatingUserAccessId, setUpdatingUserAccessId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [accessRequestsReload, setAccessRequestsReload] = useState(0);
   const [tab, setTab] = useState<Status>("nuevo");
@@ -110,20 +115,28 @@ function Panel() {
       if (!active) return;
       setCurrentUserId(authData.user?.id ?? null);
 
-      const { data: isAdmin, error } = await supabase.rpc("claim_admin");
+      const { data: isAdmin, error: claimError } = await supabase.rpc("claim_admin");
       if (!active) return;
-      if (!error && isAdmin) {
-        setAccessStatus("approved");
+      if (!claimError && isAdmin) {
+        setAccessRole("admin");
+        setAccessStatus(null);
         setAllowed(true);
         return;
       }
 
-      const { data: status } = await supabase.rpc("get_admin_access_status");
+      const { data: panelAccess, error: accessError } = await supabase.rpc("get_panel_access");
       if (!active) return;
-      setAccessStatus(
-        status === "pending" || status === "rejected" || status === "approved" ? status : "none",
-      );
-      setAllowed(false);
+      if (!accessError && (panelAccess === "admin" || panelAccess === "operator")) {
+        setAccessRole(panelAccess);
+        setAccessStatus(null);
+        setAllowed(true);
+      } else {
+        setAccessRole(null);
+        setAccessStatus(
+          panelAccess === "pending" || panelAccess === "rejected" ? panelAccess : "none",
+        );
+        setAllowed(false);
+      }
     };
     void checkAccess();
     return () => {
@@ -132,13 +145,13 @@ function Panel() {
   }, []);
 
   useEffect(() => {
-    if (!allowed) return;
+    if (!allowed || accessRole !== "admin") return;
     let active = true;
     setAccessRequestsLoading(true);
     setAccessRequestsError("");
     Promise.all([
       supabase.rpc("list_admin_access_requests"),
-      supabase.rpc("list_admin_access_users"),
+      supabase.rpc("list_access_users"),
     ]).then(([requestsResult, usersResult]) => {
       if (!active) return;
       if (requestsResult.error) {
@@ -160,7 +173,7 @@ function Panel() {
     return () => {
       active = false;
     };
-  }, [allowed, view, accessRequestsReload]);
+  }, [allowed, accessRole, view, accessRequestsReload]);
 
   useEffect(() => {
     if (!allowed) return;
@@ -229,13 +242,14 @@ function Panel() {
         });
   };
 
-  const reviewAccessRequest = async (userId: string, approve: boolean) => {
+  const reviewAccessRequest = async (userId: string, role: UserRole | null) => {
     setReviewingRequestId(userId);
     setAccessRequestsError("");
     try {
-      const { data, error } = await supabase.rpc("review_admin_access_request", {
+      const { data, error } = await supabase.rpc("review_user_access_request", {
         _user_id: userId,
-        _approve: approve,
+        _approve: role !== null,
+        _role: role,
       });
       if (error) {
         setAccessRequestsError("No se pudo actualizar la solicitud. Intentá de nuevo.");
@@ -254,21 +268,21 @@ function Panel() {
     }
   };
 
-  const changeUserAdminAccess = async (userId: string, isAdmin: boolean) => {
+  const changeUserRole = async (userId: string, role: UserRole | null) => {
     setUpdatingUserAccessId(userId);
     setAccessRequestsError("");
     try {
-      const { data, error } = await supabase.rpc("set_admin_user_access", {
+      const { data, error } = await supabase.rpc("set_user_app_role", {
         _user_id: userId,
-        _is_admin: isAdmin,
+        _role: role,
       });
       if (error) {
         const message = error.message.toLowerCase();
         setAccessRequestsError(
           message.includes("last admin")
             ? "No se puede quitar el permiso al único administrador."
-            : message.includes("own admin access")
-              ? "No podés quitarte el permiso de administrador a tu propia cuenta."
+            : message.includes("own role")
+              ? "No podés cambiar el rol de tu propia cuenta."
               : "No se pudo modificar el permiso. Revisá tu conexión e intentá de nuevo.",
         );
         return;
@@ -280,7 +294,7 @@ function Panel() {
       setAccessUsers((users) =>
         users.map((user) =>
           user.user_id === userId
-            ? { ...user, is_admin: isAdmin, request_status: isAdmin ? "approved" : "rejected" }
+            ? { ...user, role: role ?? "none", request_status: role ? "approved" : "rejected" }
             : user,
         ),
       );
@@ -292,6 +306,49 @@ function Panel() {
       );
     } finally {
       setUpdatingUserAccessId(null);
+    }
+  };
+
+  const removeUserAccount = async (userId: string, email: string | null) => {
+    if (
+      !window.confirm(
+        `Vas a eliminar permanentemente la cuenta ${email ?? "seleccionada"}. No se puede deshacer. ¿Continuar?`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingUserId(userId);
+    setAccessRequestsError("");
+    try {
+      const result = await deleteUserAccountFn({ data: { userId } });
+      if (!result.success) {
+        const errors = {
+          self: "No podés eliminar tu propia cuenta desde este panel.",
+          forbidden: "Solo un administrador puede eliminar cuentas.",
+          remove_admin_role_first:
+            "Primero cambiá el rol de Administrador de esa cuenta y después podrás eliminarla.",
+          not_found: "La cuenta ya no existe. Actualizá la lista.",
+          storage_objects:
+            "Supabase no permite eliminar una cuenta que posee archivos en Storage. Transferí o borrá esos archivos primero.",
+          configuration:
+            "Falta configurar SUPABASE_SERVICE_ROLE_KEY en las variables de servidor de Netlify.",
+          server:
+            "No se pudo eliminar la cuenta. Revisá la configuración del servidor e intentá de nuevo.",
+        } as const;
+        setAccessRequestsError(errors[result.reason]);
+        return;
+      }
+
+      setAccessUsers((users) => users.filter((user) => user.user_id !== userId));
+      setAccessRequests((requests) => requests.filter((request) => request.user_id !== userId));
+      setAccessRequestsReload((count) => count + 1);
+    } catch {
+      setAccessRequestsError(
+        "No se pudo eliminar la cuenta. Revisá la configuración del servidor.",
+      );
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -455,17 +512,19 @@ function Panel() {
             >
               Pedidos
             </button>
-            <button
-              onClick={() => setView("access")}
-              className={`rounded-full px-4 py-2 text-sm ${view === "access" ? "bg-ember text-ink" : "text-cream-dim"}`}
-            >
-              Accesos
-              {accessRequests.length > 0 && (
-                <span className="ml-1.5 rounded-full bg-ember px-1.5 py-0.5 text-xs text-ink">
-                  {accessRequests.length}
-                </span>
-              )}
-            </button>
+            {accessRole === "admin" && (
+              <button
+                onClick={() => setView("access")}
+                className={`rounded-full px-4 py-2 text-sm ${view === "access" ? "bg-ember text-ink" : "text-cream-dim"}`}
+              >
+                Accesos
+                {accessRequests.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-ember px-1.5 py-0.5 text-xs text-ink">
+                    {accessRequests.length}
+                  </span>
+                )}
+              </button>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm">
             {view === "orders" && (
@@ -508,7 +567,7 @@ function Panel() {
 
         {view === "menu" ? (
           <MenuManager />
-        ) : view === "access" ? (
+        ) : view === "access" && accessRole === "admin" ? (
           <main className="mx-auto max-w-5xl px-5 py-8">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -557,18 +616,37 @@ function Panel() {
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => void reviewAccessRequest(request.user_id, false)}
-                          disabled={reviewingRequestId !== null || updatingUserAccessId !== null}
+                          onClick={() => void reviewAccessRequest(request.user_id, null)}
+                          disabled={
+                            reviewingRequestId !== null ||
+                            updatingUserAccessId !== null ||
+                            deletingUserId !== null
+                          }
                           className="rounded-full border border-white/15 px-4 py-2 text-sm text-cream-dim hover:text-cream disabled:opacity-50"
                         >
                           Rechazar
                         </button>
                         <button
-                          onClick={() => void reviewAccessRequest(request.user_id, true)}
-                          disabled={reviewingRequestId !== null || updatingUserAccessId !== null}
+                          onClick={() => void reviewAccessRequest(request.user_id, "operator")}
+                          disabled={
+                            reviewingRequestId !== null ||
+                            updatingUserAccessId !== null ||
+                            deletingUserId !== null
+                          }
+                          className="rounded-full border border-white/15 px-4 py-2 text-sm text-cream-dim hover:text-cream disabled:opacity-50"
+                        >
+                          Operador
+                        </button>
+                        <button
+                          onClick={() => void reviewAccessRequest(request.user_id, "admin")}
+                          disabled={
+                            reviewingRequestId !== null ||
+                            updatingUserAccessId !== null ||
+                            deletingUserId !== null
+                          }
                           className="rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
                         >
-                          {reviewingRequestId === request.user_id ? "Guardando…" : "Aprobar"}
+                          {reviewingRequestId === request.user_id ? "Guardando…" : "Administrador"}
                         </button>
                       </div>
                     </article>
@@ -581,7 +659,8 @@ function Panel() {
               <div className="mb-3">
                 <h2 className="font-display text-2xl">Usuarios y permisos</h2>
                 <p className="mt-1 text-sm text-cream-dim">
-                  El permiso de Administrador habilita todas las secciones del panel.
+                  Operador accede a pedidos y menú. Administrador también gestiona accesos y
+                  cuentas.
                 </p>
               </div>
               {accessRequestsLoading && accessUsers.length === 0 ? (
@@ -609,32 +688,65 @@ function Panel() {
                           </span>
                         )}
                       </div>
-                      <label className="flex items-center gap-3 text-sm text-cream-dim">
-                        <span>Permiso</span>
-                        <select
-                          aria-label={`Permiso para ${user.email ?? "esta cuenta"}`}
-                          value={user.is_admin ? "admin" : "none"}
-                          disabled={updatingUserAccessId !== null || user.user_id === currentUserId}
-                          onChange={(event) => {
-                            const grantAdmin = event.target.value === "admin";
-                            const action = grantAdmin
-                              ? "dar acceso de administrador"
-                              : "quitar el acceso de administrador";
-                            if (
-                              window.confirm(`¿Querés ${action} a ${user.email ?? "esta cuenta"}?`)
-                            ) {
-                              void changeUserAdminAccess(user.user_id, grantAdmin);
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-3 text-sm text-cream-dim">
+                          <span>Rol</span>
+                          <select
+                            aria-label={`Rol para ${user.email ?? "esta cuenta"}`}
+                            value={user.role}
+                            disabled={
+                              updatingUserAccessId !== null ||
+                              deletingUserId !== null ||
+                              user.user_id === currentUserId
                             }
-                          }}
-                          className="rounded-lg bg-ink px-3 py-2 text-cream ring-1 ring-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <option value="none">Sin acceso</option>
-                          <option value="admin">Administrador</option>
-                        </select>
-                        {updatingUserAccessId === user.user_id && (
-                          <span className="text-xs">Guardando…</span>
-                        )}
-                      </label>
+                            onChange={(event) => {
+                              const role =
+                                event.target.value === "none"
+                                  ? null
+                                  : (event.target.value as UserRole);
+                              const roleName =
+                                role === "admin"
+                                  ? "Administrador"
+                                  : role === "operator"
+                                    ? "Operador"
+                                    : "Sin acceso";
+                              if (
+                                window.confirm(
+                                  `¿Asignar “${roleName}” a ${user.email ?? "esta cuenta"}?`,
+                                )
+                              ) {
+                                void changeUserRole(user.user_id, role);
+                              }
+                            }}
+                            className="rounded-lg bg-ink px-3 py-2 text-cream ring-1 ring-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <option value="none">Sin acceso</option>
+                            <option value="operator">Operador · Pedidos y menú</option>
+                            <option value="admin">Administrador</option>
+                          </select>
+                          {updatingUserAccessId === user.user_id && (
+                            <span className="text-xs">Guardando…</span>
+                          )}
+                        </label>
+                        {user.user_id !== currentUserId && user.role !== "admin" ? (
+                          <button
+                            type="button"
+                            onClick={() => void removeUserAccount(user.user_id, user.email)}
+                            disabled={
+                              deletingUserId !== null ||
+                              reviewingRequestId !== null ||
+                              updatingUserAccessId !== null
+                            }
+                            className="rounded-full border border-red-300/30 px-4 py-2 text-sm text-red-200 hover:bg-red-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingUserId === user.user_id ? "Eliminando…" : "Eliminar cuenta"}
+                          </button>
+                        ) : user.role === "admin" && user.user_id !== currentUserId ? (
+                          <p className="max-w-xs text-xs text-cream-dim">
+                            Quitá primero el rol de Administrador para eliminar esta cuenta.
+                          </p>
+                        ) : null}
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -658,27 +770,29 @@ function Panel() {
               })}
             </nav>
 
-            <div className="flex flex-wrap items-center gap-2 px-5 pb-4">
-              <button
-                type="button"
-                disabled={deletingOrders}
-                onClick={() => void deleteOrders(tab)}
-                className="rounded-full px-4 py-2 text-sm text-cream-dim ring-1 ring-white/15 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {deletingOrders
-                  ? "Eliminando…"
-                  : `Eliminar todos los ${STATUS.find((status) => status.id === tab)!.label.toLowerCase()}`}
-              </button>
-              <button
-                type="button"
-                disabled={deletingOrders}
-                onClick={() => void deleteOrders()}
-                className="rounded-full px-4 py-2 text-sm text-red-300 ring-1 ring-red-400/30 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Eliminar todos los pedidos
-              </button>
-            </div>
-            {deleteError && (
+            {accessRole === "admin" && (
+              <div className="flex flex-wrap items-center gap-2 px-5 pb-4">
+                <button
+                  type="button"
+                  disabled={deletingOrders}
+                  onClick={() => void deleteOrders(tab)}
+                  className="rounded-full px-4 py-2 text-sm text-cream-dim ring-1 ring-white/15 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deletingOrders
+                    ? "Eliminando…"
+                    : `Eliminar todos los ${STATUS.find((status) => status.id === tab)!.label.toLowerCase()}`}
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingOrders}
+                  onClick={() => void deleteOrders()}
+                  className="rounded-full px-4 py-2 text-sm text-red-300 ring-1 ring-red-400/30 transition-colors hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Eliminar todos los pedidos
+                </button>
+              </div>
+            )}
+            {accessRole === "admin" && deleteError && (
               <p
                 className="mx-5 mb-4 rounded-lg bg-red-400/10 p-3 text-sm text-red-200"
                 role="alert"

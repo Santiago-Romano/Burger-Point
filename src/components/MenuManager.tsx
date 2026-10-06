@@ -120,7 +120,7 @@ export function MenuManager() {
     setSaving(false);
     setMessage(
       error
-        ? "No se pudo guardar. Revisá tu conexión y los permisos de administrador."
+        ? "No se pudo guardar. Revisá tu conexión y el permiso de edición del menú."
         : "Menú guardado. La página pública se actualiza automáticamente.",
     );
   };
