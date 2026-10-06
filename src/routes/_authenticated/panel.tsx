@@ -24,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/panel")({
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type Status = Database["public"]["Enums"]["order_status"];
+type AdminAccessRequest = Database["public"]["Functions"]["list_admin_access_requests"]["Returns"][number];
+type AdminAccessStatus = "approved" | "pending" | "rejected" | "none";
 interface Item {
   name: string;
   extras: string[];
@@ -65,7 +67,13 @@ const time = (d: string) =>
 function Panel() {
   const navigate = useNavigate();
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [accessStatus, setAccessStatus] = useState<AdminAccessStatus | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [accessRequests, setAccessRequests] = useState<AdminAccessRequest[]>([]);
+  const [accessRequestsLoading, setAccessRequestsLoading] = useState(false);
+  const [accessRequestsError, setAccessRequestsError] = useState("");
+  const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null);
+  const [accessRequestsReload, setAccessRequestsReload] = useState(0);
   const [tab, setTab] = useState<Status>("nuevo");
   const [printing, setPrinting] = useState<Order | null>(null);
   const [editing, setEditing] = useState<Order | null>(null);
@@ -79,7 +87,7 @@ function Panel() {
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [width, setWidth] = useState<"80mm" | "58mm">("80mm");
-  const [view, setView] = useState<"orders" | "menu">("menu");
+  const [view, setView] = useState<"orders" | "menu" | "access">("menu");
   const [connection, setConnection] = useState<"conectado" | "reconectando" | "desconectado">(
     "reconectando",
   );
@@ -88,10 +96,51 @@ function Panel() {
   const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
+    let active = true;
     const w = localStorage.getItem("bp-print-width");
     if (w === "58mm" || w === "80mm") setWidth(w);
-    supabase.rpc("claim_admin").then(({ data }) => setAllowed(Boolean(data)));
+    const checkAccess = async () => {
+      const { data: isAdmin, error } = await supabase.rpc("claim_admin");
+      if (!active) return;
+      if (!error && isAdmin) {
+        setAccessStatus("approved");
+        setAllowed(true);
+        return;
+      }
+
+      const { data: status } = await supabase.rpc("get_admin_access_status");
+      if (!active) return;
+      setAccessStatus(
+        status === "pending" || status === "rejected" || status === "approved"
+          ? status
+          : "none",
+      );
+      setAllowed(false);
+    };
+    void checkAccess();
+    return () => {
+      active = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!allowed) return;
+    let active = true;
+    setAccessRequestsLoading(true);
+    setAccessRequestsError("");
+    supabase.rpc("list_admin_access_requests").then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        setAccessRequestsError("No se pudieron cargar las solicitudes de acceso.");
+      } else {
+        setAccessRequests(data ?? []);
+      }
+      setAccessRequestsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [allowed, view, accessRequestsReload]);
 
   useEffect(() => {
     if (!allowed) return;
@@ -158,6 +207,30 @@ function Panel() {
         .then(({ data }) => {
           if (data) setOrders((prev) => prev.map((x) => (x.id === o.id ? data : x)));
         });
+  };
+
+  const reviewAccessRequest = async (userId: string, approve: boolean) => {
+    setReviewingRequestId(userId);
+    setAccessRequestsError("");
+    try {
+      const { data, error } = await supabase.rpc("review_admin_access_request", {
+        _user_id: userId,
+        _approve: approve,
+      });
+      if (error) {
+        setAccessRequestsError("No se pudo actualizar la solicitud. Intentá de nuevo.");
+        return;
+      }
+      if (!data) {
+        setAccessRequestsError("Esa solicitud ya fue revisada. Actualizá la lista.");
+        return;
+      }
+      setAccessRequests((current) => current.filter((request) => request.user_id !== userId));
+    } catch {
+      setAccessRequestsError("No se pudo actualizar la solicitud. Intentá de nuevo.");
+    } finally {
+      setReviewingRequestId(null);
+    }
   };
 
   const deleteOrders = async (status?: Status) => {
@@ -265,14 +338,34 @@ function Panel() {
     return (
       <div className="grid min-h-screen place-items-center bg-ink p-8 text-center text-cream">
         <div>
-          <p className="font-display text-3xl">Sin acceso</p>
-          <p className="mt-2 text-cream-dim">Esta cuenta no es la del local.</p>
-          <button
-            onClick={signOut}
-            className="mt-6 rounded-full bg-ember px-5 py-2 font-semibold text-ink"
-          >
-            Salir
-          </button>
+          <p className="font-display text-3xl">
+            {accessStatus === "pending"
+              ? "Solicitud pendiente"
+              : accessStatus === "rejected"
+                ? "Solicitud rechazada"
+                : "Sin acceso"}
+          </p>
+          <p className="mt-2 max-w-md text-cream-dim">
+            {accessStatus === "pending"
+              ? "Tu cuenta quedó pendiente de aprobación. Un administrador del local debe revisar tu solicitud."
+              : accessStatus === "rejected"
+                ? "Tu solicitud no fue aprobada. Comunicate con un administrador del local si necesitás acceso."
+                : "Esta cuenta todavía no tiene acceso al panel. Pedile a un administrador que habilite tu cuenta."}
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-full border border-white/15 px-5 py-2 font-semibold text-cream"
+            >
+              Actualizar estado
+            </button>
+            <button
+              onClick={signOut}
+              className="rounded-full bg-ember px-5 py-2 font-semibold text-ink"
+            >
+              Salir
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -299,6 +392,17 @@ function Panel() {
               className={`rounded-full px-4 py-2 text-sm ${view === "orders" ? "bg-ember text-ink" : "text-cream-dim"}`}
             >
               Pedidos
+            </button>
+            <button
+              onClick={() => setView("access")}
+              className={`rounded-full px-4 py-2 text-sm ${view === "access" ? "bg-ember text-ink" : "text-cream-dim"}`}
+            >
+              Accesos
+              {accessRequests.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-ember px-1.5 py-0.5 text-xs text-ink">
+                  {accessRequests.length}
+                </span>
+              )}
             </button>
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm">
@@ -342,6 +446,68 @@ function Panel() {
 
         {view === "menu" ? (
           <MenuManager />
+        ) : view === "access" ? (
+          <main className="mx-auto max-w-5xl px-5 py-8">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ember">
+                  Administración
+                </p>
+                <h1 className="mt-1 font-display text-4xl">Solicitudes de acceso</h1>
+              </div>
+              <button
+                onClick={() => setAccessRequestsReload((count) => count + 1)}
+                disabled={accessRequestsLoading}
+                className="rounded-full border border-white/15 px-4 py-2 text-sm text-cream-dim hover:text-cream disabled:opacity-50"
+              >
+                {accessRequestsLoading ? "Actualizando…" : "Actualizar"}
+              </button>
+            </div>
+            {accessRequestsError && (
+              <p role="alert" className="mb-4 rounded-lg bg-red-400/10 p-3 text-sm text-red-200">
+                {accessRequestsError}
+              </p>
+            )}
+            {accessRequestsLoading && accessRequests.length === 0 ? (
+              <p className="text-cream-dim">Cargando solicitudes…</p>
+            ) : accessRequests.length === 0 ? (
+              <p className="rounded-xl border border-white/10 p-6 text-cream-dim">
+                No hay solicitudes pendientes.
+              </p>
+            ) : (
+              <div className="grid gap-3">
+                {accessRequests.map((request) => (
+                  <article
+                    key={request.user_id}
+                    className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-ink-2 p-4 ring-1 ring-white/10"
+                  >
+                    <div className="min-w-0">
+                      <p className="break-all font-semibold">{request.email ?? "Sin email"}</p>
+                      <p className="mt-1 text-sm text-cream-dim">
+                        Solicitó acceso el {new Date(request.requested_at).toLocaleString("es-AR")}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => void reviewAccessRequest(request.user_id, false)}
+                        disabled={reviewingRequestId !== null}
+                        className="rounded-full border border-white/15 px-4 py-2 text-sm text-cream-dim hover:text-cream disabled:opacity-50"
+                      >
+                        Rechazar
+                      </button>
+                      <button
+                        onClick={() => void reviewAccessRequest(request.user_id, true)}
+                        disabled={reviewingRequestId !== null}
+                        className="rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+                      >
+                        {reviewingRequestId === request.user_id ? "Guardando…" : "Aprobar"}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </main>
         ) : (
           <>
             <nav className="flex flex-wrap gap-2 px-5 py-4">

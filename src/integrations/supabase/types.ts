@@ -98,11 +98,20 @@ export type Database = {
     };
     Functions: {
       claim_admin: { Args: never; Returns: boolean };
+      get_admin_access_status: { Args: never; Returns: string };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];
           _user_id: string;
         };
+        Returns: boolean;
+      };
+      list_admin_access_requests: {
+        Args: never;
+        Returns: { email: string | null; requested_at: string; user_id: string }[];
+      };
+      review_admin_access_request: {
+        Args: { _approve: boolean; _user_id: string };
         Returns: boolean;
       };
     };

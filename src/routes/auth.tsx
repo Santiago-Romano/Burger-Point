@@ -112,7 +112,7 @@ function AuthPage() {
               Olvidé mi contraseña
             </button>
             <button type="button" onClick={() => { setMsg(""); setMode("up"); }} className="w-full text-sm text-cream-dim hover:text-cream">
-              Primera vez? Crear la cuenta del local
+              Primera vez? Solicitar acceso al panel
             </button>
           </>
         )}
