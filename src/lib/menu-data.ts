@@ -676,6 +676,16 @@ export const DEFAULT_MENU: MenuItem[] = [
     price: 3500,
   },
   {
+    name: "Promo Lunes Cheeseburger Doble",
+    desc: "Cheeseburger doble (smash burger + cheddar). $12.999 c/u. Delivery: mínimo 2 unidades.",
+    image: "promos_horizontal_lunes.png",
+    tag: "Lunes · $12.999 c/u",
+    tagHot: true,
+    price: 12999,
+    promoDays: [1],
+    category: "promos",
+  },
+  {
     name: "Promo Jueves Burger Point Doble",
     desc: "Burger Point doble con cheddar, panceta, cebolla caramelizada y papas fritas. $14.500 c/u. Delivery: mínimo 2 unidades.",
     image: "promo-jueves.png",
@@ -706,3 +716,18 @@ export const DEFAULT_MENU: MenuItem[] = [
     category: "promos",
   },
 ];
+
+export function mergeDefaultPromos(items: MenuItem[]): MenuItem[] {
+  const existingNames = new Set(
+    items
+      .filter((item) => item.category === "promos")
+      .map((item) => item.name.trim().toLocaleLowerCase()),
+  );
+  const missingPromos = DEFAULT_MENU.filter(
+    (item) =>
+      item.category === "promos" &&
+      !existingNames.has(item.name.trim().toLocaleLowerCase()),
+  );
+
+  return [...items, ...structuredClone(missingPromos)];
+}

@@ -3,11 +3,21 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import nosotrosImg from "@/assets/nosotros-grill.jpg";
 import burgerPointLogo from "../../Logo Burger-Point.jpeg";
-import { DEFAULT_MENU, DEFAULT_SAUCES, type MenuItem as SharedMenuItem } from "@/lib/menu-data";
+import {
+  DEFAULT_MENU,
+  DEFAULT_SAUCES,
+  mergeDefaultPromos,
+  type MenuItem as SharedMenuItem,
+} from "@/lib/menu-data";
 import { supabase } from "@/integrations/supabase/client";
 import { CartProvider, useCart } from "@/lib/cart";
 import { CartDrawer } from "@/components/CartDrawer";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  getBuenosAiresWeekday,
+  isPromoAvailableToday,
+  PROMO_WEEKDAYS,
+} from "@/lib/promo-schedule";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,7 +45,7 @@ const WHATSAPP = "5491162118588";
 const waLink = (text: string) =>
   `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(text)}`;
 
-const menuImages = import.meta.glob("/src/assets/menu/*.png", {
+const menuImages = import.meta.glob("/src/assets/menu/*.{png,jpg,jpeg}", {
   eager: true,
   import: "default",
 }) as Record<string, string>;
@@ -52,7 +62,6 @@ const CATEGORIES: { id: Category; label: string }[] = [
   { id: "veggies", label: "Veggies" },
   { id: "acompanamientos", label: "Acompañamientos" },
   { id: "bebidas", label: "Bebidas" },
-  { id: "promos", label: "Promos" },
 ];
 
 interface MenuVariant {
@@ -284,7 +293,14 @@ function MenuCard({ item }: { item: MenuItem }) {
   const waHref = waLink(orderLines.join("\n"));
   const cart = useCart();
   const addToCart = () => {
-    cart.add({ name: displayName, extras: extrasSel, salsa: salsa || undefined, unitPrice: displayPrice });
+    cart.add({
+      name: displayName,
+      extras: extrasSel,
+      salsa: salsa || undefined,
+      unitPrice: displayPrice,
+      isPromo: item.category === "promos",
+      promoDays: item.category === "promos" ? item.promoDays : undefined,
+    });
     setCustomizerOpen(false);
     setExtrasSel([]);
     setSalsa("");
@@ -541,30 +557,84 @@ function CartButton() {
   );
 }
 
-function getUpcomingPromo(items: MenuItem[], day: number) {
-  return items
-    .filter((item) => item.category === "promos" && item.enabled !== false)
-    .flatMap((item) =>
-      (item.promoDays ?? []).map((promoDay) => ({
-        item,
-        distance: (promoDay - day + 7) % 7,
-      })),
-    )
-    .sort((left, right) => left.distance - right.distance)[0]?.item;
-}
+function DailyPromoHero({
+  promos,
+  day,
+  onAdd,
+}: {
+  promos: MenuItem[];
+  day: number;
+  onAdd: (item: MenuItem) => void;
+}) {
+  const todayLabel = PROMO_WEEKDAYS[day] ?? "hoy";
+  const featuredPromo = promos[0]!;
 
-function getBuenosAiresWeekday() {
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    weekday: "short",
-  }).format(new Date());
-  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekday);
+  return (
+    <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pt-10 pb-10 sm:px-8 lg:grid-cols-12">
+      <div className="lg:col-span-6">
+        <div className="animate-rise mb-6 flex items-center gap-3">
+          <span className="h-px w-8 bg-ember" />
+          <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream-dim">
+            Ituzaingó · Buenos Aires
+          </span>
+        </div>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ember">
+          Disponible solo hoy · {todayLabel}
+        </p>
+        <h1 className="animate-rise mt-3 font-display text-[clamp(3.5rem,9vw,7rem)] leading-[0.82] tracking-tight">
+          HOY
+          <br />
+          <span className="animate-flicker text-ember">HAY PROMO</span>
+        </h1>
+        <div className="mt-7 space-y-3">
+          {promos.map((promo) => (
+            <article key={promo.name} className="rounded-2xl bg-ink-2/90 p-4 ring-1 ring-ember/35 sm:p-5">
+              <h2 className="font-display text-2xl leading-tight sm:text-3xl">
+                {promo.name.replace(/^Promo\s+/i, "")}
+              </h2>
+              <p className="mt-2 text-sm text-pretty text-cream-dim">{promo.desc}</p>
+              {promo.price != null && (
+                <p className="mt-2 font-mono text-xl font-semibold text-ember">
+                  $ {promo.price.toLocaleString("es-AR")} c/u
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => onAdd(promo)}
+                className="mt-4 rounded-full bg-ember px-5 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ember-soft"
+              >
+                Agregar promo al pedido
+              </button>
+            </article>
+          ))}
+        </div>
+        <a
+          href="#menu"
+          className="mt-5 inline-flex items-center rounded-full border border-white/15 px-6 py-3 text-sm font-medium text-cream transition-colors hover:border-ember/60 hover:text-ember"
+        >
+          Ver el menú completo
+        </a>
+      </div>
+
+      <div className="animate-rise relative lg:col-span-6 [animation-delay:120ms]">
+        <div className="absolute -inset-3 rounded-[28px] bg-ember/25 blur-2xl" />
+        <div className="relative overflow-hidden rounded-[28px] bg-black ring-1 ring-white/10">
+          <img
+            src={img(featuredPromo.image)}
+            alt={featuredPromo.name}
+            className="block h-auto max-h-[70vh] w-full max-w-full bg-black object-contain"
+          />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function IndexInner() {
   const [category, setCategory] = useState<Category>("burgers");
   const [menu, setMenu] = useState<MenuItem[]>(DEFAULT_MENU.length ? DEFAULT_MENU as MenuItem[] : LEGACY_MENU);
   const [promoDay, setPromoDay] = useState(getBuenosAiresWeekday);
+  const cart = useCart();
 
   useEffect(() => {
     let active = true;
@@ -575,7 +645,7 @@ function IndexInner() {
       .maybeSingle()
       .then(({ data }) => {
         if (active && Array.isArray(data?.items)) {
-          setMenu(data.items as unknown as MenuItem[]);
+          setMenu(mergeDefaultPromos(data.items as unknown as MenuItem[]));
         }
       });
 
@@ -583,7 +653,7 @@ function IndexInner() {
       .channel("public-menu")
       .on("postgres_changes", { event: "*", schema: "public", table: "menu_content" }, (payload) => {
         const updatedItems = (payload.new as { items?: unknown }).items;
-        if (Array.isArray(updatedItems)) setMenu(updatedItems as MenuItem[]);
+        if (Array.isArray(updatedItems)) setMenu(mergeDefaultPromos(updatedItems as MenuItem[]));
       })
       .subscribe();
 
@@ -599,7 +669,30 @@ function IndexInner() {
   }, []);
 
   const items = menu.filter((item) => item.category === category && item.enabled !== false);
-  const featuredPromo = category === "promos" ? getUpcomingPromo(items, promoDay) : undefined;
+  const todaysPromos = menu.filter(
+    (item) =>
+      item.category === "promos" &&
+      item.enabled !== false &&
+      isPromoAvailableToday(item.promoDays, promoDay),
+  );
+  const addPromoToCart = (item: MenuItem) => {
+    if (!isPromoAvailableToday(item.promoDays)) {
+      setPromoDay(getBuenosAiresWeekday());
+      toast.error("Esta promo solo se puede pedir el día indicado.");
+      return;
+    }
+
+    cart.add({
+      name: item.name,
+      extras: [],
+      unitPrice: item.price,
+      isPromo: true,
+      promoDays: item.promoDays,
+    });
+    toast.success(`${item.name} agregada al pedido`, {
+      action: { label: "Ver pedido", onClick: () => cart.setOpen(true) },
+    });
+  };
 
   return (
     <div className="min-h-screen bg-ink font-body text-cream antialiased">
@@ -635,6 +728,9 @@ function IndexInner() {
         <div className="pointer-events-none absolute -top-24 right-[-10%] h-[520px] w-[520px] rounded-full bg-ember/20 blur-[120px]" />
         <div className="pointer-events-none absolute bottom-0 left-[-10%] h-[360px] w-[360px] rounded-full bg-ember-soft/10 blur-[100px]" />
 
+        {todaysPromos.length > 0 ? (
+          <DailyPromoHero promos={todaysPromos} day={promoDay} onAdd={addPromoToCart} />
+        ) : (
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pt-14 pb-10 sm:px-8 lg:grid-cols-12">
           <div className="lg:col-span-6">
             <div className="animate-rise mb-6 flex items-center gap-3">
@@ -703,6 +799,7 @@ function IndexInner() {
             </div>
           </div>
         </div>
+        )}
 
         {/* marquee */}
         <div className="overflow-hidden border-y border-white/10 py-3">
@@ -713,7 +810,7 @@ function IndexInner() {
                 <span className="text-ember">◆</span>
                 <span className="px-6">FRITAS CRUJIENTES</span>
                 <span className="text-ember">◆</span>
-                <span className="px-6">PROMOS DE FIN DE SEMANA</span>
+                <span className="px-6">PROMOS SOLO EN SU DIA</span>
                 <span className="text-ember">◆</span>
                 <span className="px-6">DELIVERY EN ITUZAINGÓ</span>
                 <span className="text-ember">◆</span>
@@ -750,30 +847,6 @@ function IndexInner() {
             ))}
           </div>
         </div>
-
-        {featuredPromo && (
-          <article className="mb-8 grid overflow-hidden rounded-2xl bg-ink-2 ring-1 ring-white/10 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
-            <img
-              src={img(featuredPromo.image)}
-              alt={featuredPromo.name}
-              className="block max-h-[70vh] min-h-64 w-full max-w-full bg-black object-contain md:max-h-[32rem]"
-            />
-            <div className="flex flex-col justify-center p-6 sm:p-9">
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-ember">
-                Promo destacada
-              </p>
-              <h3 className="mt-3 font-display text-4xl leading-none sm:text-5xl">
-                {featuredPromo.name}
-              </h3>
-              <p className="mt-4 text-pretty text-cream-dim">{featuredPromo.desc}</p>
-              {featuredPromo.price != null && (
-                <p className="mt-5 font-display text-4xl text-ember">
-                  $ {featuredPromo.price.toLocaleString("es-AR")}
-                </p>
-              )}
-            </div>
-          </article>
-        )}
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (

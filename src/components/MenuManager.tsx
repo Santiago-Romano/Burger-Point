@@ -3,6 +3,7 @@ import {
   DEFAULT_MENU,
   DEFAULT_SAUCES,
   MENU_CATEGORIES,
+  mergeDefaultPromos,
   type MenuExtra,
   type MenuItem,
   type MenuVariant,
@@ -13,7 +14,7 @@ import type { Database } from "@/integrations/supabase/types";
 const field =
   "w-full rounded-md bg-ink px-3 py-2.5 text-sm text-cream ring-1 ring-white/15 outline-none focus:ring-ember";
 const label = "mb-1.5 block font-mono text-[10px] uppercase tracking-[0.15em] text-cream-dim";
-const imageAssets = import.meta.glob("/src/assets/menu/*.png", {
+const imageAssets = import.meta.glob("/src/assets/menu/*.{png,jpg,jpeg}", {
   eager: true,
   import: "default",
 }) as Record<string, string>;
@@ -59,7 +60,8 @@ export function MenuManager() {
         if (!active) return;
         if (error)
           setMessage("No se pudo leer el menú. Aplicá la migración de Supabase y volvé a cargar.");
-        else if (Array.isArray(data?.items)) setItems(data.items as unknown as MenuItem[]);
+        else if (Array.isArray(data?.items))
+          setItems(mergeDefaultPromos(data.items as unknown as MenuItem[]));
         setLoading(false);
       });
     return () => {

@@ -7,6 +7,8 @@ export interface CartItem {
   salsa?: string | undefined;
   unitPrice?: number | undefined;
   qty: number;
+  isPromo?: boolean;
+  promoDays?: number[];
 }
 
 interface CartCtx {

@@ -1,12 +1,16 @@
 import { useRef, useState } from "react";
 import { useCart } from "@/lib/cart";
 import { submitOrder } from "@/lib/order-submit";
+import { isPromoAvailableToday, PROMO_WEEKDAYS } from "@/lib/promo-schedule";
 
 const ZONAS = ["Ituzaingó", "Castelar", "Padua", "Udaondo", "Villa Tesei"];
 const PAGOS = ["Efectivo", "Tarjeta", "Mercado Pago", "Transferencia"];
 
 const field =
   "w-full rounded-lg bg-ink px-3 py-2.5 text-sm text-cream ring-1 ring-white/15 outline-none placeholder:text-cream-dim/60 focus:ring-ember";
+
+const isPromoCartItem = (item: { name: string; isPromo?: boolean }) =>
+  item.isPromo ?? /^promo(?:\s|$)/i.test(item.name);
 
 export function CartDrawer() {
   const { items, setQty, clear, open, setOpen } = useCart();
@@ -28,6 +32,20 @@ export function CartDrawer() {
     e.preventDefault();
     setError("");
     if (!items.length) return setError("Tu pedido está vacío.");
+    const unavailablePromo = items.find(
+      (item) => isPromoCartItem(item) && !isPromoAvailableToday(item.promoDays),
+    );
+    if (unavailablePromo) {
+      const validDays = (unavailablePromo.promoDays ?? [])
+        .map((day) => PROMO_WEEKDAYS[day])
+        .filter(Boolean)
+        .join(", ");
+      return setError(
+        validDays
+          ? `${unavailablePromo.name} solo está disponible estos días: ${validDays}. Quitala del pedido para continuar.`
+          : "Hay una promo vencida en el pedido. Quitala y agregá la promo disponible hoy.",
+      );
+    }
     if (name.trim().length < 2) return setError("Ingresá tu nombre.");
     if (phone.replace(/\D/g, "").length < 8) return setError("Ingresá un teléfono válido.");
     if (tipo === "delivery" && address.trim().length < 4) return setError("Ingresá la dirección.");
