@@ -37,6 +37,7 @@ export type Database = {
           items: Json;
           notes: string | null;
           order_number: number;
+          prep_eta_minutes: number | null;
           payment: string;
           phone: string;
           status: Database["public"]["Enums"]["order_status"];
@@ -52,6 +53,7 @@ export type Database = {
           items: Json;
           notes?: string | null;
           order_number?: number;
+          prep_eta_minutes?: number | null;
           payment: string;
           phone: string;
           status?: Database["public"]["Enums"]["order_status"];
@@ -67,6 +69,7 @@ export type Database = {
           items?: Json;
           notes?: string | null;
           order_number?: number;
+          prep_eta_minutes?: number | null;
           payment?: string;
           phone?: string;
           status?: Database["public"]["Enums"]["order_status"];
@@ -100,6 +103,10 @@ export type Database = {
       claim_admin: { Args: never; Returns: boolean };
       get_admin_access_status: { Args: never; Returns: string };
       get_panel_access: { Args: never; Returns: string };
+      get_order_tracking: {
+        Args: { _client_order_id: string };
+        Returns: { order_number: number; prep_eta_minutes: number | null; status: Database["public"]["Enums"]["order_status"] }[];
+      };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];

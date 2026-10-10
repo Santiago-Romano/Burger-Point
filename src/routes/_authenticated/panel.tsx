@@ -228,9 +228,10 @@ function Panel() {
     };
   }, [allowed]);
 
-  const setStatus = async (o: Order, status: Status) => {
-    setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, status } : x)));
-    const { error } = await supabase.from("orders").update({ status }).eq("id", o.id);
+  const setStatus = async (o: Order, status: Status, prepEtaMinutes?: number) => {
+    const update = { status, ...(prepEtaMinutes ? { prep_eta_minutes: prepEtaMinutes } : {}) };
+    setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, ...update } : x)));
+    const { error } = await supabase.from("orders").update(update).eq("id", o.id);
     if (error)
       void supabase
         .from("orders")
@@ -839,8 +840,29 @@ function Panel() {
                       ))}
                     </ul>
                     {o.notes && <p className="mt-2 rounded-md bg-ink p-2 text-sm">📝 {o.notes}</p>}
+                    {o.status === "en_cocina" && o.prep_eta_minutes && (
+                      <p className="mt-3 rounded-lg bg-ember/10 px-3 py-2 text-sm text-ember">
+                        Demora informada: {o.prep_eta_minutes} minutos
+                      </p>
+                    )}
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {st.next && (
+                      {st.next && o.status === "nuevo" && (
+                        <div className="w-full rounded-xl bg-ink p-3 ring-1 ring-white/10">
+                          <p className="mb-2 text-sm font-semibold">Pasar a cocina · demora estimada</p>
+                          <div className="flex flex-wrap gap-2">
+                            {[20, 30, 40].map((minutes) => (
+                              <button
+                                key={minutes}
+                                onClick={() => setStatus(o, st.next!, minutes)}
+                                className="rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink"
+                              >
+                                {minutes} min
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {st.next && o.status !== "nuevo" && (
                         <button
                           onClick={() => setStatus(o, st.next!)}
                           className="rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink"
@@ -959,7 +981,7 @@ function Panel() {
 
       {printing && (
         <div
-          className="hidden bg-white p-2 font-mono text-[12px] leading-tight text-black print:block"
+          className="hidden bg-white p-2 font-mono text-[14px] leading-tight text-black print:block"
           style={{ width }}
         >
           <p className="text-center text-base font-bold">BURGER POINT</p>
@@ -974,6 +996,7 @@ function Panel() {
               : "RETIRA EN LOCAL"}
           </p>
           <p>Pago: {printing.payment}</p>
+          {printing.prep_eta_minutes && <p>Demora estimada: {printing.prep_eta_minutes} min</p>}
           <hr className="my-1 border-black" />
           {(printing.items as unknown as Item[]).map((i, idx) => (
             <div key={idx} className="mb-1">

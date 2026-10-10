@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/panel'
+import { Route as SeguimientoTokenRouteImport } from './routes/seguimiento.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,16 +34,23 @@ const AuthenticatedPanelRoute = AuthenticatedPanelRouteImport.update({
   path: '/panel',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const SeguimientoTokenRoute = SeguimientoTokenRouteImport.update({
+  id: '/seguimiento/$token',
+  path: '/seguimiento/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/panel': typeof AuthenticatedPanelRoute
+  '/seguimiento/$token': typeof SeguimientoTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/panel': typeof AuthenticatedPanelRoute
+  '/seguimiento/$token': typeof SeguimientoTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -50,19 +58,21 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/panel': typeof AuthenticatedPanelRoute
+  '/seguimiento/$token': typeof SeguimientoTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/panel'
+  fullPaths: '/' | '/auth' | '/panel' | '/seguimiento/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/panel'
-  id: '__root__' | '/' | '/_authenticated' | '/auth' | '/_authenticated/panel'
+  to: '/' | '/auth' | '/panel' | '/seguimiento/$token'
+  id: '__root__' | '/' | '/_authenticated' | '/auth' | '/_authenticated/panel' | '/seguimiento/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  SeguimientoTokenRoute: typeof SeguimientoTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -95,6 +105,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPanelRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/seguimiento/$token': {
+      id: '/seguimiento/$token'
+      path: '/seguimiento/$token'
+      fullPath: '/seguimiento/$token'
+      preLoaderRoute: typeof SeguimientoTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -113,6 +130,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  SeguimientoTokenRoute: SeguimientoTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

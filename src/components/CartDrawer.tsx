@@ -24,6 +24,7 @@ export function CartDrawer() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [trackingToken, setTrackingToken] = useState<string | null>(null);
   const submissionKey = useRef<string | null>(null);
 
   if (!open) return null;
@@ -79,6 +80,7 @@ export function CartDrawer() {
       );
 
     clear();
+    setTrackingToken(clientOrderId);
     submissionKey.current = null;
     setDone(true);
   };
@@ -114,8 +116,16 @@ export function CartDrawer() {
           <div className="mt-10 text-center" aria-live="polite">
             <p className="font-display text-4xl text-ember">¡PEDIDO REGISTRADO!</p>
             <p className="mt-3 text-cream-dim">
-              El pedido quedó registrado en el panel, sin enviarlo a WhatsApp.
+              Recibimos tu pedido #{trackingToken?.slice(0, 8).toUpperCase()}. Podés consultar su estado y la demora estimada.
             </p>
+            {trackingToken && (
+              <a
+                href={`/seguimiento/${trackingToken}`}
+                className="mt-5 inline-flex rounded-full bg-ember px-6 py-3 font-semibold text-ink"
+              >
+                Ver estado del pedido
+              </a>
+            )}
             <button
               onClick={close}
               className="mt-8 rounded-full bg-ember px-6 py-3 font-semibold text-ink"
