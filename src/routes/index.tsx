@@ -996,6 +996,9 @@ function IndexInner() {
           <p className="mt-10 font-mono text-[11px] uppercase tracking-[0.2em] text-cream-dim">
             Burger Point · Ituzaingó, Buenos Aires · Pedidos por WhatsApp
           </p>
+          <p className="mt-3 text-xs text-cream-dim/70">
+            Sitio creado por Romano Web Studio
+          </p>
         </div>
       </footer>
 
