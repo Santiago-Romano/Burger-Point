@@ -16,6 +16,12 @@ The project uses the TanStack Start Netlify Vite plugin to deploy server renderi
 
 Configure the required Supabase and cron environment variables in Netlify using `.env.example` as a reference. Keep service-role keys in Netlify's environment settings; never commit them.
 
+### Delivery distance pricing
+
+The checkout requests a Google Maps Routes API driving distance from Cnel. Quesada 1275, Ituzaingó to the entered delivery address. Configure `GOOGLE_MAPS_API_KEY` in the local `.env` and in Netlify's environment settings. Enable the Routes API and billing in the Google Cloud project, and restrict the key to the Routes API. The key is read only by the server function.
+
+Apply `20261010130000_delivery_distance_quote.sql` to Supabase before recording delivery quotes. The driving-distance fees are $1,500 through 2.5 km; $1,800 through 3 km; $2,000 through 3.5 km; $2,500 through 4 km; $3,000 through 4.5 km; $3,500 through 5 km; and $4,000 through 5.5 km. Delivery is unavailable beyond 5.5 km.
+
 ## Order reliability
 
 Apply all migrations in `supabase/migrations`, including

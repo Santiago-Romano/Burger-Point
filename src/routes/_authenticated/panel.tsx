@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { MenuManager } from "@/components/MenuManager";
 import { deleteUserAccount } from "@/lib/delete-user.functions";
+import { formatDistance } from "@/lib/delivery-fees";
 
 export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({
@@ -822,6 +823,13 @@ function Panel() {
                         : "Retira en el local"}{" "}
                       · {o.payment}
                     </p>
+                    {o.delivery_type === "delivery" && o.delivery_fee != null && (
+                      <p className="text-sm text-cream-dim">
+                        Envío: $ {o.delivery_fee.toLocaleString("es-AR")}
+                        {o.delivery_distance_meters != null &&
+                          ` · ${formatDistance(o.delivery_distance_meters)} por auto`}
+                      </p>
+                    )}
                     <ul className="mt-3 space-y-1 text-sm">
                       {items.map((i, idx) => (
                         <li key={idx}>
@@ -981,40 +989,46 @@ function Panel() {
 
       {printing && (
         <div
-          className="hidden bg-white p-2 font-mono text-[14px] leading-tight text-black print:block"
+          className="hidden bg-white p-1 font-mono text-[14px] leading-tight text-black print:block"
           style={{ width }}
         >
-          <p className="text-center text-base font-bold">BURGER POINT</p>
-          <p className="text-center text-2xl font-bold">#{printing.order_number}</p>
-          <p className="text-center">{new Date(printing.created_at).toLocaleString("es-AR")}</p>
+          <p className="text-center text-xs font-bold">BURGER POINT</p>
+          <p className="text-center text-xl font-bold">#{printing.order_number}</p>
+          <p className="text-center text-[11px]">
+            {new Date(printing.created_at).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}
+          </p>
           <hr className="my-1 border-black" />
-          <p className="font-bold">{printing.customer_name}</p>
-          <p>Tel: {printing.phone}</p>
-          <p>
+          <p className="font-bold">{printing.customer_name} · {printing.phone}</p>
+          <p className="text-[13px]">
             {printing.delivery_type === "delivery"
               ? `${printing.address} (${printing.zone})`
               : "RETIRA EN LOCAL"}
           </p>
-          <p>Pago: {printing.payment}</p>
-          {printing.prep_eta_minutes && <p>Demora estimada: {printing.prep_eta_minutes} min</p>}
+          <p className="text-[13px]">
+            Pago: {printing.payment}
+            {printing.prep_eta_minutes && ` · Demora: ${printing.prep_eta_minutes} min`}
+          </p>
+          {printing.delivery_fee != null && (
+            <p className="text-[13px]">
+              Envío: $ {printing.delivery_fee.toLocaleString("es-AR")}
+              {printing.delivery_distance_meters != null &&
+                ` · ${formatDistance(printing.delivery_distance_meters)}`}
+            </p>
+          )}
           <hr className="my-1 border-black" />
           {(printing.items as unknown as Item[]).map((i, idx) => (
-            <div key={idx} className="mb-1">
-              <p className="font-bold">
-                {i.qty}x {i.name}
-              </p>
-              {i.extras?.map((e) => (
-                <p key={e}> + {e}</p>
-              ))}
-              {i.salsa && <p> Salsa: {i.salsa}</p>}
+            <div key={idx} className="mb-1 break-words">
+              <p className="font-bold">{i.qty}x {i.name}</p>
+              {(i.extras?.length || i.salsa) && (
+                <p className="text-[12px]">
+                  {i.extras?.length ? `+ ${i.extras.join(", ")}` : ""}
+                  {i.extras?.length && i.salsa ? " · " : ""}
+                  {i.salsa ? `Salsa: ${i.salsa}` : ""}
+                </p>
+              )}
             </div>
           ))}
-          {printing.notes && (
-            <>
-              <hr className="my-1 border-black" />
-              <p>Notas: {printing.notes}</p>
-            </>
-          )}
+          {printing.notes && <p className="mt-1 text-[12px]"><b>Notas:</b> {printing.notes}</p>}
         </div>
       )}
     </>

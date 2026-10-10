@@ -32,6 +32,8 @@ export type Database = {
           client_order_id: string;
           created_at: string;
           customer_name: string;
+          delivery_distance_meters: number | null;
+          delivery_fee: number | null;
           delivery_type: string;
           id: string;
           items: Json;
@@ -48,6 +50,8 @@ export type Database = {
           client_order_id?: string;
           created_at?: string;
           customer_name: string;
+          delivery_distance_meters?: number | null;
+          delivery_fee?: number | null;
           delivery_type?: string;
           id?: string;
           items: Json;
@@ -64,6 +68,8 @@ export type Database = {
           client_order_id?: string;
           created_at?: string;
           customer_name?: string;
+          delivery_distance_meters?: number | null;
+          delivery_fee?: number | null;
           delivery_type?: string;
           id?: string;
           items?: Json;

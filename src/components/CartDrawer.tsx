@@ -1,6 +1,9 @@
 import { useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useCart } from "@/lib/cart";
 import { submitOrder } from "@/lib/order-submit";
+import { quoteDelivery } from "@/lib/delivery-quote.functions";
+import { formatDistance, type DeliveryFeeResult } from "@/lib/delivery-fees";
 import { isPromoAvailableToday, PROMO_WEEKDAYS } from "@/lib/promo-schedule";
 
 const ZONAS = ["Ituzaingó", "Castelar", "Padua", "Udaondo", "Villa Tesei"];
@@ -14,6 +17,7 @@ const isPromoCartItem = (item: { name: string; isPromo?: boolean }) =>
 
 export function CartDrawer() {
   const { items, setQty, clear, open, setOpen } = useCart();
+  const quoteDeliveryFn = useServerFn(quoteDelivery);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [tipo, setTipo] = useState<"delivery" | "retiro">("delivery");
@@ -25,9 +29,40 @@ export function CartDrawer() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [trackingToken, setTrackingToken] = useState<string | null>(null);
+  const [deliveryQuote, setDeliveryQuote] = useState<
+    (DeliveryFeeResult & { address: string; zone: string }) | null
+  >(null);
+  const [quotingDelivery, setQuotingDelivery] = useState(false);
   const submissionKey = useRef<string | null>(null);
 
   if (!open) return null;
+
+  const quoteMatchesAddress =
+    deliveryQuote?.address === address.trim() && deliveryQuote?.zone === zone;
+
+  const calculateDelivery = async () => {
+    setError("");
+    if (address.trim().length < 4) return setError("Ingresá la dirección para calcular el envío.");
+
+    setQuotingDelivery(true);
+    setDeliveryQuote(null);
+    try {
+      const result = await quoteDeliveryFn({ data: { address: address.trim(), zone } });
+      if (!result.success) {
+        setError(
+          result.reason === "configuration"
+            ? "El cálculo de envío todavía no está configurado. Elegí retiro o contactá al local."
+            : "No pudimos calcular la distancia para esa dirección. Revisá la dirección y la localidad.",
+        );
+      } else {
+        setDeliveryQuote({ ...result, address: address.trim(), zone });
+      }
+    } catch {
+      setError("No pudimos calcular el envío. Revisá la dirección e intentá de nuevo.");
+    } finally {
+      setQuotingDelivery(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +85,10 @@ export function CartDrawer() {
     if (name.trim().length < 2) return setError("Ingresá tu nombre.");
     if (phone.replace(/\D/g, "").length < 8) return setError("Ingresá un teléfono válido.");
     if (tipo === "delivery" && address.trim().length < 4) return setError("Ingresá la dirección.");
+    if (tipo === "delivery" && !quoteMatchesAddress)
+      return setError("Calculá el costo del envío antes de confirmar el pedido.");
+    if (tipo === "delivery" && deliveryQuote?.available === false)
+      return setError("No llegamos a esa dirección: supera los 5,5 km de recorrido.");
 
     const clientOrderId = submissionKey.current ?? crypto.randomUUID();
     submissionKey.current = clientOrderId;
@@ -59,6 +98,9 @@ export function CartDrawer() {
       customer_name: name.trim().slice(0, 100),
       phone: phone.trim().slice(0, 30),
       delivery_type: tipo,
+      delivery_distance_meters:
+        tipo === "delivery" && deliveryQuote?.available ? deliveryQuote.distanceMeters : null,
+      delivery_fee: tipo === "delivery" && deliveryQuote?.available ? deliveryQuote.fee : null,
       address: tipo === "delivery" ? address.trim().slice(0, 200) : null,
       zone: tipo === "delivery" ? zone : null,
       payment,
@@ -212,14 +254,45 @@ export function CartDrawer() {
                     className={field}
                     placeholder="Dirección (calle, número, entre calles)"
                     value={address}
-                    onChange={(e) => setAddress(e.target.value)}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setDeliveryQuote(null);
+                    }}
                     maxLength={200}
                   />
-                  <select className={field} value={zone} onChange={(e) => setZone(e.target.value)}>
+                  <select
+                    className={field}
+                    value={zone}
+                    onChange={(e) => {
+                      setZone(e.target.value);
+                      setDeliveryQuote(null);
+                    }}
+                  >
                     {ZONAS.map((z) => (
                       <option key={z}>{z}</option>
                     ))}
                   </select>
+                  <button
+                    type="button"
+                    onClick={() => void calculateDelivery()}
+                    disabled={quotingDelivery || address.trim().length < 4}
+                    className="w-full rounded-full px-4 py-2.5 text-sm font-semibold ring-1 ring-white/20 hover:bg-white/5 disabled:opacity-50"
+                  >
+                    {quotingDelivery ? "Calculando distancia…" : "Calcular costo de envío"}
+                  </button>
+                  {quoteMatchesAddress && deliveryQuote?.available && (
+                    <div className="rounded-lg bg-ink px-3 py-2 text-sm" aria-live="polite">
+                      <p>Distancia por auto: {formatDistance(deliveryQuote.distanceMeters)}</p>
+                      <p className="font-semibold text-ember">
+                        Costo de envío: $ {deliveryQuote.fee.toLocaleString("es-AR")}
+                      </p>
+                    </div>
+                  )}
+                  {quoteMatchesAddress && deliveryQuote?.available === false && (
+                    <p className="rounded-lg bg-red-400/10 px-3 py-2 text-sm text-red-200" role="alert">
+                      Distancia: {formatDistance(deliveryQuote.distanceMeters)}. No hay delivery a más de 5,5 km.
+                    </p>
+                  )}
                 </>
               )}
               <select
@@ -245,7 +318,7 @@ export function CartDrawer() {
                 </p>
               )}
               <button
-                disabled={sending || items.length === 0}
+                disabled={sending || items.length === 0 || quotingDelivery}
                 className="w-full rounded-full bg-ember py-3.5 font-semibold text-ink disabled:opacity-50"
               >
                 {sending ? "Registrando y reintentando…" : "Confirmar pedido"}

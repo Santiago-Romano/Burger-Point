@@ -65,7 +65,13 @@ export interface FileRouteTypes {
   fullPaths: '/' | '/auth' | '/panel' | '/seguimiento/$token'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/auth' | '/panel' | '/seguimiento/$token'
-  id: '__root__' | '/' | '/_authenticated' | '/auth' | '/_authenticated/panel' | '/seguimiento/$token'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/panel'
+    | '/seguimiento/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
