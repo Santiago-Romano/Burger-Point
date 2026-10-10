@@ -4,6 +4,7 @@ import { useCart } from "@/lib/cart";
 import { submitOrder } from "@/lib/order-submit";
 import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { formatDistance, type DeliveryFeeResult } from "@/lib/delivery-fees";
+import { saveTrackingToken } from "@/lib/order-tracking";
 import { isPromoAvailableToday, PROMO_WEEKDAYS } from "@/lib/promo-schedule";
 
 const ZONAS = ["Ituzaingó", "Castelar", "Padua", "Udaondo", "Villa Tesei"];
@@ -129,6 +130,7 @@ export function CartDrawer() {
       );
 
     clear();
+    saveTrackingToken(clientOrderId);
     setTrackingToken(clientOrderId);
     submissionKey.current = null;
     setDone(true);

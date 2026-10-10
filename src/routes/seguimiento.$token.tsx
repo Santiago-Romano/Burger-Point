@@ -14,7 +14,15 @@ const labels: Record<Status, string> = {
   cancelado: "Pedido cancelado",
 };
 
-export const Route = createFileRoute("/seguimiento/$token")({ component: TrackingPage });
+export const Route = createFileRoute("/seguimiento/$token")({
+  head: () => ({
+    meta: [
+      { name: "robots", content: "noindex, nofollow" },
+      { name: "referrer", content: "no-referrer" },
+    ],
+  }),
+  component: TrackingPage,
+});
 
 function TrackingPage() {
   const { token } = Route.useParams();

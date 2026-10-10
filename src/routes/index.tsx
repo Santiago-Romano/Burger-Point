@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { CartProvider, useCart } from "@/lib/cart";
 import { CartDrawer } from "@/components/CartDrawer";
+import { getSavedTrackingToken, subscribeToTrackingToken } from "@/lib/order-tracking";
 import { Toaster } from "@/components/ui/sonner";
 import {
   getBuenosAiresWeekday,
@@ -546,14 +547,32 @@ function Index() {
 
 function CartButton() {
   const { count, setOpen } = useCart();
+  const [trackingToken, setTrackingToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const refreshTrackingToken = () => setTrackingToken(getSavedTrackingToken());
+    refreshTrackingToken();
+    return subscribeToTrackingToken(refreshTrackingToken);
+  }, []);
+
   return (
-    <button
-      onClick={() => setOpen(true)}
-      className="inline-flex items-center gap-2 rounded-full border border-ember/50 px-5 py-3 text-sm font-semibold text-ember transition-colors hover:bg-ember hover:text-ink"
-    >
-      Mi pedido
-      <span className="grid min-w-6 place-items-center rounded-full bg-ember px-1.5 text-xs text-ink">{count}</span>
-    </button>
+    <div className="flex items-center gap-2">
+      {trackingToken && (
+        <a
+          href={`/seguimiento/${trackingToken}`}
+          className="inline-flex items-center rounded-full border border-white/20 px-3 py-3 text-xs font-semibold text-cream transition-colors hover:border-ember hover:text-ember sm:px-4 sm:text-sm"
+        >
+          Seguir pedido
+        </a>
+      )}
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-full border border-ember/50 px-4 py-3 text-sm font-semibold text-ember transition-colors hover:bg-ember hover:text-ink sm:px-5"
+      >
+        Mi pedido
+        <span className="grid min-w-6 place-items-center rounded-full bg-ember px-1.5 text-xs text-ink">{count}</span>
+      </button>
+    </div>
   );
 }
 
