@@ -39,6 +39,13 @@ export function CartDrawer() {
 
   const quoteMatchesAddress =
     deliveryQuote?.address === address.trim() && deliveryQuote?.zone === zone;
+  const subtotal = items.reduce((sum, item) => sum + (item.unitPrice ?? 0) * item.qty, 0);
+  const quotedDeliveryFee =
+    tipo === "delivery" && quoteMatchesAddress && deliveryQuote?.available
+      ? deliveryQuote.fee
+      : 0;
+  const totalIsReady = tipo === "retiro" || (quoteMatchesAddress && deliveryQuote?.available === true);
+  const currency = (amount: number) => `$ ${amount.toLocaleString("es-AR")}`;
 
   const calculateDelivery = async () => {
     setError("");
@@ -322,6 +329,35 @@ export function CartDrawer() {
                 onChange={(e) => setNotes(e.target.value)}
                 maxLength={500}
               />
+              <section
+                className="space-y-1 rounded-lg bg-ink px-3 py-2.5 text-sm"
+                aria-live="polite"
+                aria-label="Resumen del pedido"
+              >
+                <div className="flex justify-between gap-3">
+                  <span>Subtotal</span>
+                  <span>{currency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-cream-dim">
+                  <span>{tipo === "delivery" ? "Delivery" : "Envío (retiro en local)"}</span>
+                  <span>
+                    {tipo === "retiro"
+                      ? currency(0)
+                      : quoteMatchesAddress && deliveryQuote?.available
+                        ? currency(deliveryQuote.fee)
+                        : quoteMatchesAddress && deliveryQuote?.available === false
+                          ? "No disponible"
+                          : "A calcular"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3 border-t border-white/15 pt-2 text-base font-bold">
+                  <span>Total</span>
+                  <span>{totalIsReady ? currency(subtotal + quotedDeliveryFee) : "A calcular"}</span>
+                </div>
+                {tipo === "delivery" && !totalIsReady && deliveryQuote?.available !== false && (
+                  <p className="text-xs text-cream-dim">Calculá el envío para ver el total final.</p>
+                )}
+              </section>
               {error && (
                 <p className="text-sm text-ember" role="alert">
                   {error}
