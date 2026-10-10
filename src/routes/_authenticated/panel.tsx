@@ -989,36 +989,37 @@ function Panel() {
 
       {printing && (
         <div
-          className="hidden bg-white p-1 font-mono text-[14px] leading-tight text-black print:block"
-          style={{ width }}
+          className="hidden bg-white p-2 font-mono text-[13px] leading-snug text-black print:block"
+          style={{ width, boxSizing: "border-box" }}
         >
-          <p className="text-center text-xs font-bold">BURGER POINT</p>
-          <p className="text-center text-xl font-bold">#{printing.order_number}</p>
-          <p className="text-center text-[11px]">
+          <p className="text-center text-[15px] font-bold">BURGER POINT</p>
+          <p className="text-center text-[12px] font-bold">COMPROBANTE DE PEDIDO</p>
+          <p className="mt-1 text-center text-[22px] font-bold">N.º {printing.order_number}</p>
+          <p className="text-center text-[12px]">
             {new Date(printing.created_at).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}
           </p>
-          <hr className="my-1 border-black" />
-          <p className="font-bold">{printing.customer_name} · {printing.phone}</p>
-          <p className="text-[13px]">
-            {printing.delivery_type === "delivery"
-              ? `${printing.address} (${printing.zone})`
-              : "RETIRA EN LOCAL"}
+          <hr className="my-2 border-black" />
+          <p><b>Cliente:</b> {printing.customer_name}</p>
+          <p><b>Teléfono:</b> {printing.phone}</p>
+          <p className="mt-1 font-bold">
+            {printing.delivery_type === "delivery" ? "DELIVERY" : "RETIRO EN LOCAL"}
           </p>
-          <p className="text-[13px]">
-            Pago: {printing.payment}
-            {printing.prep_eta_minutes && ` · Demora: ${printing.prep_eta_minutes} min`}
-          </p>
-          {printing.delivery_fee != null && (
-            <p className="text-[13px]">
-              Envío: $ {printing.delivery_fee.toLocaleString("es-AR")}
-              {printing.delivery_distance_meters != null &&
-                ` · ${formatDistance(printing.delivery_distance_meters)}`}
-            </p>
-          )}
-          <hr className="my-1 border-black" />
+          {printing.delivery_type === "delivery" && <p><b>Dirección:</b> {printing.address}{printing.zone ? `, ${printing.zone}` : ""}</p>}
+          <p><b>Pago:</b> {printing.payment}</p>
+          {printing.prep_eta_minutes && <p><b>Demora:</b> {printing.prep_eta_minutes} min</p>}
+          <hr className="my-2 border-black" />
+          <p className="mb-1 text-center font-bold">DETALLE DEL PEDIDO</p>
           {(printing.items as unknown as Item[]).map((i, idx) => (
-            <div key={idx} className="mb-1 break-words">
-              <p className="font-bold">{i.qty}x {i.name}</p>
+            <div key={idx} className="mb-2 break-words">
+              <div className="flex justify-between gap-2 font-bold">
+                <span>{i.qty} x {i.name}</span>
+                <span className="shrink-0">
+                  {i.unit_price != null
+                    ? `$ ${(i.unit_price * i.qty).toLocaleString("es-AR")}`
+                    : "—"}
+                </span>
+              </div>
+              {i.unit_price != null && <p>$ {i.unit_price.toLocaleString("es-AR")} c/u</p>}
               {(i.extras?.length || i.salsa) && (
                 <p className="text-[12px]">
                   {i.extras?.length ? `+ ${i.extras.join(", ")}` : ""}
@@ -1028,7 +1029,25 @@ function Panel() {
               )}
             </div>
           ))}
-          {printing.notes && <p className="mt-1 text-[12px]"><b>Notas:</b> {printing.notes}</p>}
+          <hr className="my-2 border-black" />
+          {(() => {
+            const items = printing.items as unknown as Item[];
+            const hasAllPrices = items.every((item) => item.unit_price != null);
+            const subtotal = items.reduce((sum, item) => sum + (item.unit_price ?? 0) * item.qty, 0);
+            const deliveryFee = printing.delivery_type === "delivery" ? printing.delivery_fee ?? 0 : 0;
+            return <>
+              <div className="flex justify-between gap-2"><span>Subtotal</span><span>$ {subtotal.toLocaleString("es-AR")}</span></div>
+              {printing.delivery_type === "delivery" && (
+                <div className="flex justify-between gap-2"><span>Envío</span><span>$ {deliveryFee.toLocaleString("es-AR")}</span></div>
+              )}
+              <div className="mt-1 flex justify-between gap-2 text-[17px] font-bold">
+                <span>TOTAL</span><span>{hasAllPrices ? `$ ${(subtotal + deliveryFee).toLocaleString("es-AR")}` : "Verificar precios"}</span>
+              </div>
+              {!hasAllPrices && <p className="text-[10px]">Este pedido no tiene todos los precios guardados.</p>}
+            </>;
+          })()}
+          {printing.notes && <p className="mt-2 break-words"><b>Notas:</b> {printing.notes}</p>}
+          <p className="mt-3 text-center text-[11px]">Gracias por tu pedido</p>
         </div>
       )}
     </>
