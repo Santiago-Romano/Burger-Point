@@ -280,6 +280,16 @@ export function CartDrawer() {
                   >
                     {quotingDelivery ? "Calculando distancia…" : "Calcular costo de envío"}
                   </button>
+                  <p className="text-center text-[10px] text-cream-dim">
+                    Powered by{" "}
+                    <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer" className="underline">
+                      Geoapify
+                    </a>
+                    {" · "}
+                    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">
+                      © OpenStreetMap contributors
+                    </a>
+                  </p>
                   {quoteMatchesAddress && deliveryQuote?.available && (
                     <div className="rounded-lg bg-ink px-3 py-2 text-sm" aria-live="polite">
                       <p>Distancia por auto: {formatDistance(deliveryQuote.distanceMeters)}</p>
