@@ -48,6 +48,10 @@ const STATUS: { id: Status; label: string; next?: Status; nextLabel?: string }[]
   { id: "cancelado", label: "Cancelados" },
 ];
 
+const DEFAULT_PREP_MINUTES = 30;
+const DEFAULT_DELIVERY_MINUTES = 20;
+const MAX_DELAY_MINUTES = 240;
+
 function beep() {
   try {
     const ctx = new AudioContext();
@@ -106,6 +110,16 @@ function Panel() {
   const [refreshing, setRefreshing] = useState(false);
   const [deletingOrders, setDeletingOrders] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [delays, setDelays] = useState({
+    prep: DEFAULT_PREP_MINUTES,
+    delivery: DEFAULT_DELIVERY_MINUTES,
+  });
+  const [delaysDraft, setDelaysDraft] = useState({
+    prep: String(DEFAULT_PREP_MINUTES),
+    delivery: String(DEFAULT_DELIVERY_MINUTES),
+  });
+  const [savingDelays, setSavingDelays] = useState(false);
+  const [delaysMessage, setDelaysMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -229,10 +243,82 @@ function Panel() {
     };
   }, [allowed]);
 
+  useEffect(() => {
+    if (!allowed) return;
+    let active = true;
+    void supabase
+      .from("shop_settings")
+      .select("prep_minutes, delivery_minutes")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data }) => {
+        // Without the settings row (or table yet) the default delays keep working.
+        if (!active || !data) return;
+        setDelays({ prep: data.prep_minutes, delivery: data.delivery_minutes });
+        setDelaysDraft({ prep: String(data.prep_minutes), delivery: String(data.delivery_minutes) });
+      });
+    return () => {
+      active = false;
+    };
+  }, [allowed]);
+
+  const saveDelays = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const prep = Number(delaysDraft.prep);
+    const delivery = Number(delaysDraft.delivery);
+    const valid = (n: number) => Number.isInteger(n) && n >= 1 && n <= MAX_DELAY_MINUTES;
+    if (!valid(prep) || !valid(delivery)) {
+      setDelaysMessage({
+        ok: false,
+        text: `Ingresá minutos enteros entre 1 y ${MAX_DELAY_MINUTES}.`,
+      });
+      return;
+    }
+    setSavingDelays(true);
+    setDelaysMessage(null);
+    const { data, error } = await supabase
+      .from("shop_settings")
+      .upsert(
+        {
+          id: 1,
+          prep_minutes: prep,
+          delivery_minutes: delivery,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      )
+      .select("prep_minutes, delivery_minutes")
+      .single();
+    setSavingDelays(false);
+    if (error || !data) {
+      setDelaysMessage({
+        ok: false,
+        text: "No se pudieron guardar las demoras. Revisá que la migración esté aplicada e intentá de nuevo.",
+      });
+      return;
+    }
+    setDelays({ prep: data.prep_minutes, delivery: data.delivery_minutes });
+    setDelaysDraft({ prep: String(data.prep_minutes), delivery: String(data.delivery_minutes) });
+    setDelaysMessage({ ok: true, text: "Demoras guardadas." });
+  };
+
   const setStatus = async (o: Order, status: Status, prepEtaMinutes?: number) => {
-    const update = { status, ...(prepEtaMinutes ? { prep_eta_minutes: prepEtaMinutes } : {}) };
-    setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, ...update } : x)));
-    const { error } = await supabase.from("orders").update(update).eq("id", o.id);
+    const prepEta = prepEtaMinutes ?? (status === "en_cocina" ? delays.prep : undefined);
+    // The delivery delay is informed when a delivery order leaves the kitchen.
+    const deliveryEta =
+      status === "enviado" && o.delivery_type === "delivery" ? delays.delivery : undefined;
+    const update: Database["public"]["Tables"]["orders"]["Update"] = {
+      status,
+      ...(prepEta ? { prep_eta_minutes: prepEta } : {}),
+      ...(deliveryEta ? { delivery_eta_minutes: deliveryEta } : {}),
+    };
+    setOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, ...update } as Order : x)));
+    let { error } = await supabase.from("orders").update(update).eq("id", o.id);
+    // If the migration is not applied yet, still change the status instead of failing.
+    if (error && deliveryEta && (error.code === "PGRST204" || error.code === "42703")) {
+      const { delivery_eta_minutes: _deliveryEta, ...legacyUpdate } = update;
+      ({ error } = await supabase.from("orders").update(legacyUpdate).eq("id", o.id));
+    }
     if (error)
       void supabase
         .from("orders")
@@ -757,6 +843,62 @@ function Panel() {
           </main>
         ) : (
           <>
+            <form
+              onSubmit={saveDelays}
+              className="mx-5 mt-4 flex flex-wrap items-end gap-3 rounded-2xl bg-ink-2 p-4 ring-1 ring-white/10"
+            >
+              <div>
+                <label htmlFor="delay-prep" className="mb-1.5 block text-sm font-semibold">
+                  Demora de las hamburguesas (min)
+                </label>
+                <input
+                  id="delay-prep"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={MAX_DELAY_MINUTES}
+                  value={delaysDraft.prep}
+                  onChange={(event) => setDelaysDraft({ ...delaysDraft, prep: event.target.value })}
+                  className="w-36 rounded-lg bg-ink px-3 py-2.5 text-sm ring-1 ring-white/15"
+                />
+              </div>
+              <div>
+                <label htmlFor="delay-delivery" className="mb-1.5 block text-sm font-semibold">
+                  Demora del envío (min)
+                </label>
+                <input
+                  id="delay-delivery"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={MAX_DELAY_MINUTES}
+                  value={delaysDraft.delivery}
+                  onChange={(event) =>
+                    setDelaysDraft({ ...delaysDraft, delivery: event.target.value })
+                  }
+                  className="w-36 rounded-lg bg-ink px-3 py-2.5 text-sm ring-1 ring-white/15"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingDelays}
+                className="rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingDelays ? "Guardando…" : "Guardar demoras"}
+              </button>
+              {delaysMessage && (
+                <p
+                  className={`text-sm ${delaysMessage.ok ? "text-emerald-300" : "text-red-200"}`}
+                  role={delaysMessage.ok ? "status" : "alert"}
+                >
+                  {delaysMessage.text}
+                </p>
+              )}
+              <p className="w-full text-xs text-cream-dim">
+                Se informa al cliente al pasar el pedido a cocina (hamburguesas) y al marcarlo como enviado (envío). Los pedidos ya informados no cambian.
+              </p>
+            </form>
+
             <nav className="flex flex-wrap gap-2 px-5 py-4">
               {STATUS.map((s) => {
                 const n = orders.filter((o) => o.status === s.id).length;
@@ -853,12 +995,17 @@ function Panel() {
                         Demora informada: {o.prep_eta_minutes} minutos
                       </p>
                     )}
+                    {o.status === "enviado" && o.delivery_eta_minutes && (
+                      <p className="mt-3 rounded-lg bg-ember/10 px-3 py-2 text-sm text-ember">
+                        Envío informado: {o.delivery_eta_minutes} minutos
+                      </p>
+                    )}
                     <div className="mt-4 flex flex-wrap gap-2">
                       {st.next && o.status === "nuevo" && (
                         <div className="w-full rounded-xl bg-ink p-3 ring-1 ring-white/10">
                           <p className="mb-2 text-sm font-semibold">Pasar a cocina · demora estimada</p>
                           <div className="flex flex-wrap gap-2">
-                            {[20, 30, 40].map((minutes) => (
+                            {[delays.prep].map((minutes) => (
                               <button
                                 key={minutes}
                                 onClick={() => setStatus(o, st.next!, minutes)}

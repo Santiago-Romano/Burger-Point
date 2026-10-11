@@ -2,9 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { clearTrackingToken } from "@/lib/order-tracking";
 
 type Status = Database["public"]["Enums"]["order_status"];
-type Tracking = { order_number: number; status: Status; prep_eta_minutes: number | null };
+type Tracking = {
+  order_number: number;
+  status: Status;
+  prep_eta_minutes: number | null;
+  delivery_eta_minutes?: number | null;
+};
 
 const labels: Record<Status, string> = {
   nuevo: "Recibimos tu pedido",
@@ -38,6 +44,7 @@ function TrackingPage() {
       if (!active) return;
       setFailed(Boolean(error) || !data?.length);
       setOrder(data?.[0] ?? null);
+      if (data?.[0]?.status === "entregado") clearTrackingToken(token);
     };
     void refresh();
     const interval = window.setInterval(() => void refresh(), 10_000);
@@ -57,6 +64,11 @@ function TrackingPage() {
             <h1 className="mt-2 font-display text-4xl">{labels[order.status]}</h1>
             {order.status === "en_cocina" && order.prep_eta_minutes && (
               <p className="mt-4 text-lg">Demora estimada: {order.prep_eta_minutes} minutos</p>
+            )}
+            {order.status === "enviado" && order.delivery_eta_minutes && (
+              <p className="mt-4 text-lg">
+                Llega en aproximadamente {order.delivery_eta_minutes} minutos
+              </p>
             )}
             <p className="mt-5 text-sm text-cream-dim">Esta página se actualiza automáticamente.</p>
           </>

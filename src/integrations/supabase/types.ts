@@ -33,6 +33,7 @@ export type Database = {
           created_at: string;
           customer_name: string;
           delivery_distance_meters: number | null;
+          delivery_eta_minutes: number | null;
           delivery_fee: number | null;
           delivery_type: string;
           id: string;
@@ -51,6 +52,7 @@ export type Database = {
           created_at?: string;
           customer_name: string;
           delivery_distance_meters?: number | null;
+          delivery_eta_minutes?: number | null;
           delivery_fee?: number | null;
           delivery_type?: string;
           id?: string;
@@ -69,6 +71,7 @@ export type Database = {
           created_at?: string;
           customer_name?: string;
           delivery_distance_meters?: number | null;
+          delivery_eta_minutes?: number | null;
           delivery_fee?: number | null;
           delivery_type?: string;
           id?: string;
@@ -80,6 +83,27 @@ export type Database = {
           phone?: string;
           status?: Database["public"]["Enums"]["order_status"];
           zone?: string | null;
+        };
+        Relationships: [];
+      };
+      shop_settings: {
+        Row: {
+          delivery_minutes: number;
+          id: number;
+          prep_minutes: number;
+          updated_at: string;
+        };
+        Insert: {
+          delivery_minutes?: number;
+          id?: number;
+          prep_minutes?: number;
+          updated_at?: string;
+        };
+        Update: {
+          delivery_minutes?: number;
+          id?: number;
+          prep_minutes?: number;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -111,7 +135,7 @@ export type Database = {
       get_panel_access: { Args: never; Returns: string };
       get_order_tracking: {
         Args: { _client_order_id: string };
-        Returns: { order_number: number; prep_eta_minutes: number | null; status: Database["public"]["Enums"]["order_status"] }[];
+        Returns: { delivery_eta_minutes: number | null; order_number: number; prep_eta_minutes: number | null; status: Database["public"]["Enums"]["order_status"] }[];
       };
       has_role: {
         Args: {

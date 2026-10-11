@@ -12,7 +12,11 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { CartProvider, useCart } from "@/lib/cart";
 import { CartDrawer } from "@/components/CartDrawer";
-import { getSavedTrackingToken, subscribeToTrackingToken } from "@/lib/order-tracking";
+import {
+  clearTrackingToken,
+  getSavedTrackingToken,
+  subscribeToTrackingToken,
+} from "@/lib/order-tracking";
 import { Toaster } from "@/components/ui/sonner";
 import {
   getBuenosAiresWeekday,
@@ -554,6 +558,30 @@ function CartButton() {
     refreshTrackingToken();
     return subscribeToTrackingToken(refreshTrackingToken);
   }, []);
+
+  // Once the order is delivered, the customer no longer sees the "Seguir pedido" option.
+  useEffect(() => {
+    if (!trackingToken) return;
+    let active = true;
+    const checkDelivered = async () => {
+      const { data, error } = await supabase.rpc("get_order_tracking", {
+        _client_order_id: trackingToken,
+      });
+      if (!active || error) return;
+      if (data?.[0]?.status === "entregado") clearTrackingToken(trackingToken);
+    };
+    void checkDelivered();
+    const interval = window.setInterval(() => void checkDelivered(), 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void checkDelivered();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [trackingToken]);
 
   return (
     <div className="flex items-center gap-2">
