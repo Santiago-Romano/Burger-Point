@@ -50,6 +50,7 @@ const STATUS: { id: Status; label: string; next?: Status; nextLabel?: string }[]
 
 const DEFAULT_PREP_MINUTES = 30;
 const DEFAULT_DELIVERY_MINUTES = 20;
+const DEFAULT_DELAY_PRESETS = [20, 30, 40, 50];
 const MAX_DELAY_MINUTES = 240;
 
 function beep() {
@@ -113,11 +114,16 @@ function Panel() {
   const [delays, setDelays] = useState({
     prep: DEFAULT_PREP_MINUTES,
     delivery: DEFAULT_DELIVERY_MINUTES,
+    prepPresets: DEFAULT_DELAY_PRESETS,
+    deliveryPresets: DEFAULT_DELAY_PRESETS,
   });
   const [delaysDraft, setDelaysDraft] = useState({
     prep: String(DEFAULT_PREP_MINUTES),
     delivery: String(DEFAULT_DELIVERY_MINUTES),
+    prepPresets: DEFAULT_DELAY_PRESETS,
+    deliveryPresets: DEFAULT_DELAY_PRESETS,
   });
+  const [presetDraft, setPresetDraft] = useState({ prep: "", delivery: "" });
   const [savingDelays, setSavingDelays] = useState(false);
   const [delaysMessage, setDelaysMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -248,14 +254,28 @@ function Panel() {
     let active = true;
     void supabase
       .from("shop_settings")
-      .select("prep_minutes, delivery_minutes")
+      .select("prep_minutes, delivery_minutes, prep_presets, delivery_presets")
       .eq("id", 1)
       .maybeSingle()
       .then(({ data }) => {
         // Without the settings row (or table yet) the default delays keep working.
         if (!active || !data) return;
-        setDelays({ prep: data.prep_minutes, delivery: data.delivery_minutes });
-        setDelaysDraft({ prep: String(data.prep_minutes), delivery: String(data.delivery_minutes) });
+        const prepPresets = data.prep_presets?.length ? data.prep_presets : DEFAULT_DELAY_PRESETS;
+        const deliveryPresets = data.delivery_presets?.length
+          ? data.delivery_presets
+          : DEFAULT_DELAY_PRESETS;
+        setDelays({
+          prep: data.prep_minutes,
+          delivery: data.delivery_minutes,
+          prepPresets,
+          deliveryPresets,
+        });
+        setDelaysDraft({
+          prep: String(data.prep_minutes),
+          delivery: String(data.delivery_minutes),
+          prepPresets,
+          deliveryPresets,
+        });
       });
     return () => {
       active = false;
@@ -274,6 +294,10 @@ function Panel() {
       });
       return;
     }
+    const prepPresets = [...new Set([...delaysDraft.prepPresets, prep])].sort((a, b) => a - b);
+    const deliveryPresets = [...new Set([...delaysDraft.deliveryPresets, delivery])].sort(
+      (a, b) => a - b,
+    );
     setSavingDelays(true);
     setDelaysMessage(null);
     const { data, error } = await supabase
@@ -283,11 +307,13 @@ function Panel() {
           id: 1,
           prep_minutes: prep,
           delivery_minutes: delivery,
+          prep_presets: prepPresets,
+          delivery_presets: deliveryPresets,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" },
       )
-      .select("prep_minutes, delivery_minutes")
+      .select("prep_minutes, delivery_minutes, prep_presets, delivery_presets")
       .single();
     setSavingDelays(false);
     if (error || !data) {
@@ -297,16 +323,57 @@ function Panel() {
       });
       return;
     }
-    setDelays({ prep: data.prep_minutes, delivery: data.delivery_minutes });
-    setDelaysDraft({ prep: String(data.prep_minutes), delivery: String(data.delivery_minutes) });
+    setDelays({
+      prep: data.prep_minutes,
+      delivery: data.delivery_minutes,
+      prepPresets: data.prep_presets,
+      deliveryPresets: data.delivery_presets,
+    });
+    setDelaysDraft({
+      prep: String(data.prep_minutes),
+      delivery: String(data.delivery_minutes),
+      prepPresets: data.prep_presets,
+      deliveryPresets: data.delivery_presets,
+    });
     setDelaysMessage({ ok: true, text: "Demoras guardadas." });
   };
 
-  const setStatus = async (o: Order, status: Status, prepEtaMinutes?: number) => {
+  const addPreset = (kind: "prep" | "delivery") => {
+    const minutes = Number(presetDraft[kind]);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > MAX_DELAY_MINUTES) return;
+    const key = kind === "prep" ? "prepPresets" : "deliveryPresets";
+    setDelaysDraft((current) => ({
+      ...current,
+      [key]: [...new Set([...current[key], minutes])].sort((a, b) => a - b),
+    }));
+    setPresetDraft((current) => ({ ...current, [kind]: "" }));
+  };
+
+  const removePreset = (kind: "prep" | "delivery", minutes: number) => {
+    const key = kind === "prep" ? "prepPresets" : "deliveryPresets";
+    setDelaysDraft((current) => ({
+      ...current,
+      [key]: current[key].filter((value) => value !== minutes),
+    }));
+  };
+
+  const selectDelay = (kind: "prep" | "delivery", minutes: number) => {
+    setDelays((current) => ({ ...current, [kind]: minutes }));
+    setDelaysDraft((current) => ({ ...current, [kind]: String(minutes) }));
+  };
+
+  const setStatus = async (
+    o: Order,
+    status: Status,
+    prepEtaMinutes?: number,
+    deliveryEtaMinutes?: number,
+  ) => {
     const prepEta = prepEtaMinutes ?? (status === "en_cocina" ? delays.prep : undefined);
     // The delivery delay is informed when a delivery order leaves the kitchen.
     const deliveryEta =
-      status === "enviado" && o.delivery_type === "delivery" ? delays.delivery : undefined;
+      status === "enviado" && o.delivery_type === "delivery"
+        ? (deliveryEtaMinutes ?? delays.delivery)
+        : undefined;
     const update: Database["public"]["Tables"]["orders"]["Update"] = {
       status,
       ...(prepEta ? { prep_eta_minutes: prepEta } : {}),
@@ -845,47 +912,69 @@ function Panel() {
           <>
             <form
               onSubmit={saveDelays}
-              className="mx-5 mt-4 flex flex-wrap items-end gap-3 rounded-2xl bg-ink-2 p-4 ring-1 ring-white/10"
+              className="mx-5 mt-4 grid gap-5 rounded-2xl bg-ink-2 p-4 ring-1 ring-white/10 md:grid-cols-2"
             >
-              <div>
-                <label htmlFor="delay-prep" className="mb-1.5 block text-sm font-semibold">
-                  Demora de las hamburguesas (min)
-                </label>
-                <input
-                  id="delay-prep"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={MAX_DELAY_MINUTES}
-                  value={delaysDraft.prep}
-                  onChange={(event) => setDelaysDraft({ ...delaysDraft, prep: event.target.value })}
-                  className="w-36 rounded-lg bg-ink px-3 py-2.5 text-sm ring-1 ring-white/15"
-                />
-              </div>
-              <div>
-                <label htmlFor="delay-delivery" className="mb-1.5 block text-sm font-semibold">
-                  Demora del envío (min)
-                </label>
-                <input
-                  id="delay-delivery"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={MAX_DELAY_MINUTES}
-                  value={delaysDraft.delivery}
-                  onChange={(event) =>
-                    setDelaysDraft({ ...delaysDraft, delivery: event.target.value })
-                  }
-                  className="w-36 rounded-lg bg-ink px-3 py-2.5 text-sm ring-1 ring-white/15"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={savingDelays}
-                className="rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {savingDelays ? "Guardando…" : "Guardar demoras"}
-              </button>
+              {(["prep", "delivery"] as const).map((kind) => {
+                const label = kind === "prep" ? "Hamburguesas" : "Delivery";
+                const presets = delaysDraft[kind === "prep" ? "prepPresets" : "deliveryPresets"];
+                return (
+                  <section key={kind}>
+                    <h2 className="mb-1 text-sm font-semibold">Demora de {label.toLowerCase()}</h2>
+                    <p className="mb-3 text-xs text-cream-dim">
+                      Elegí un botón al avanzar el pedido. Podés sumar o quitar tiempos.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {presets.map((minutes) => (
+                        <span key={minutes} className="inline-flex items-center rounded-full bg-ink px-3 py-2 text-sm ring-1 ring-white/15">
+                          <button
+                            type="button"
+                            onClick={() => selectDelay(kind, minutes)}
+                            className={delays[kind] === minutes ? "font-semibold text-ember" : "text-cream"}
+                          >
+                            {minutes} min
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Eliminar demora de ${minutes} minutos para ${label}`}
+                            onClick={() => removePreset(kind, minutes)}
+                            className="ml-2 text-cream-dim hover:text-red-200"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <input
+                        aria-label={`Nuevo tiempo de ${label}`}
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={MAX_DELAY_MINUTES}
+                        placeholder="Minutos"
+                        value={presetDraft[kind]}
+                        onChange={(event) => setPresetDraft({ ...presetDraft, [kind]: event.target.value })}
+                        className="w-28 rounded-lg bg-ink px-3 py-2 text-sm ring-1 ring-white/15"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addPreset(kind)}
+                        className="rounded-full px-3 py-2 text-sm text-cream-dim ring-1 ring-white/15 hover:text-cream"
+                      >
+                        + Agregar
+                      </button>
+                    </div>
+                  </section>
+                );
+              })}
+              <div className="flex flex-wrap items-center gap-3 md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={savingDelays}
+                  className="rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingDelays ? "Guardando…" : "Guardar demoras"}
+                </button>
               {delaysMessage && (
                 <p
                   className={`text-sm ${delaysMessage.ok ? "text-emerald-300" : "text-red-200"}`}
@@ -894,8 +983,9 @@ function Panel() {
                   {delaysMessage.text}
                 </p>
               )}
-              <p className="w-full text-xs text-cream-dim">
-                Se informa al cliente al pasar el pedido a cocina (hamburguesas) y al marcarlo como enviado (envío). Los pedidos ya informados no cambian.
+              </div>
+              <p className="text-xs text-cream-dim md:col-span-2">
+                Los nuevos tiempos se agregan al guardar. Las demoras se informan al pasar a cocina (hamburguesas) y al marcar enviado (delivery). Los pedidos ya informados no cambian.
               </p>
             </form>
 
@@ -1005,11 +1095,27 @@ function Panel() {
                         <div className="w-full rounded-xl bg-ink p-3 ring-1 ring-white/10">
                           <p className="mb-2 text-sm font-semibold">Pasar a cocina · demora estimada</p>
                           <div className="flex flex-wrap gap-2">
-                            {[delays.prep].map((minutes) => (
+                            {delays.prepPresets.map((minutes) => (
                               <button
                                 key={minutes}
                                 onClick={() => setStatus(o, st.next!, minutes)}
-                                className="rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink"
+                                className={`rounded-full px-4 py-2 text-sm font-semibold ${delays.prep === minutes ? "bg-ember text-ink" : "text-cream ring-1 ring-white/15"}`}
+                              >
+                                {minutes} min
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {st.next && o.status === "en_cocina" && o.delivery_type === "delivery" && (
+                        <div className="w-full rounded-xl bg-ink p-3 ring-1 ring-white/10">
+                          <p className="mb-2 text-sm font-semibold">Marcar enviado · demora de delivery</p>
+                          <div className="flex flex-wrap gap-2">
+                            {delays.deliveryPresets.map((minutes) => (
+                              <button
+                                key={minutes}
+                                onClick={() => setStatus(o, st.next!, undefined, minutes)}
+                                className={`rounded-full px-4 py-2 text-sm font-semibold ${delays.delivery === minutes ? "bg-ember text-ink" : "text-cream ring-1 ring-white/15"}`}
                               >
                                 {minutes} min
                               </button>
@@ -1018,6 +1124,7 @@ function Panel() {
                         </div>
                       )}
                       {st.next && o.status !== "nuevo" && (
+                        o.status === "en_cocina" && o.delivery_type === "delivery" ? null :
                         <button
                           onClick={() => setStatus(o, st.next!)}
                           className="rounded-full bg-ember px-4 py-2 text-sm font-semibold text-ink"

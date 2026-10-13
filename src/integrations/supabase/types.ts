@@ -89,20 +89,26 @@ export type Database = {
       shop_settings: {
         Row: {
           delivery_minutes: number;
+          delivery_presets: number[];
           id: number;
           prep_minutes: number;
+          prep_presets: number[];
           updated_at: string;
         };
         Insert: {
           delivery_minutes?: number;
+          delivery_presets?: number[];
           id?: number;
           prep_minutes?: number;
+          prep_presets?: number[];
           updated_at?: string;
         };
         Update: {
           delivery_minutes?: number;
+          delivery_presets?: number[];
           id?: number;
           prep_minutes?: number;
+          prep_presets?: number[];
           updated_at?: string;
         };
         Relationships: [];
