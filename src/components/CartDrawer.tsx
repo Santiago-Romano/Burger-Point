@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useCart } from "@/lib/cart";
 import { submitOrder } from "@/lib/order-submit";
 import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { formatDistance, type DeliveryFeeResult } from "@/lib/delivery-fees";
-import { saveTrackingToken } from "@/lib/order-tracking";
+import { supabase } from "@/integrations/supabase/client";
+import { clearTrackingToken, saveTrackingToken } from "@/lib/order-tracking";
 import { isPromoAvailableToday, PROMO_WEEKDAYS } from "@/lib/promo-schedule";
 
 const ZONAS = ["Ituzaingó", "Castelar", "Padua", "Udaondo", "Villa Tesei"];
@@ -15,6 +16,41 @@ const field =
 
 const isPromoCartItem = (item: { name: string; isPromo?: boolean }) =>
   item.isPromo ?? /^promo(?:\s|$)/i.test(item.name);
+
+// "Ver estado del pedido" desaparece apenas el pedido figura como entregado.
+function TrackingLink({ token }: { token: string }) {
+  const [delivered, setDelivered] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      const { data, error } = await supabase.rpc("get_order_tracking", {
+        _client_order_id: token,
+      });
+      if (!active || error) return;
+      if (data?.[0]?.status === "entregado") {
+        setDelivered(true);
+        clearTrackingToken(token);
+      }
+    };
+    void check();
+    const interval = window.setInterval(() => void check(), 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [token]);
+
+  if (delivered) return null;
+  return (
+    <a
+      href={`/seguimiento/${token}`}
+      className="mt-5 inline-flex rounded-full bg-ember px-6 py-3 font-semibold text-ink"
+    >
+      Ver estado del pedido
+    </a>
+  );
+}
 
 export function CartDrawer() {
   const { items, setQty, clear, open, setOpen } = useCart();
@@ -169,14 +205,7 @@ export function CartDrawer() {
             <p className="mt-3 text-cream-dim">
               Recibimos tu pedido #{trackingToken?.slice(0, 8).toUpperCase()}. Podés consultar su estado y la demora estimada.
             </p>
-            {trackingToken && (
-              <a
-                href={`/seguimiento/${trackingToken}`}
-                className="mt-5 inline-flex rounded-full bg-ember px-6 py-3 font-semibold text-ink"
-              >
-                Ver estado del pedido
-              </a>
-            )}
+            {trackingToken && <TrackingLink token={trackingToken} />}
             <button
               onClick={close}
               className="mt-8 rounded-full bg-ember px-6 py-3 font-semibold text-ink"
