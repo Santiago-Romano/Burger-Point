@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useCart } from "@/lib/cart";
-import { submitOrder } from "@/lib/order-submit";
+import { submitOrder } from "@/lib/order-submit.functions";
 import { quoteDelivery } from "@/lib/delivery-quote.functions";
 import { formatDistance, type DeliveryFeeResult } from "@/lib/delivery-fees";
 import { supabase } from "@/integrations/supabase/client";
 import { clearTrackingToken, saveTrackingToken } from "@/lib/order-tracking";
 import { isPromoAvailableToday, PROMO_WEEKDAYS } from "@/lib/promo-schedule";
 
-const ZONAS = ["Ituzaingó", "Castelar", "Padua", "Udaondo", "Villa Tesei"];
-const PAGOS = ["Efectivo", "Tarjeta", "Mercado Pago", "Transferencia"];
+const ZONAS = ["Ituzaingó", "Castelar", "Padua", "Udaondo", "Villa Tesei"] as const;
+const PAGOS = ["Efectivo", "Tarjeta", "Mercado Pago", "Transferencia"] as const;
 
 const field =
   "w-full rounded-lg bg-ink px-3 py-2.5 text-sm text-cream ring-1 ring-white/15 outline-none placeholder:text-cream-dim/60 focus:ring-ember";
@@ -55,12 +55,13 @@ function TrackingLink({ token }: { token: string }) {
 export function CartDrawer() {
   const { items, setQty, clear, open, setOpen } = useCart();
   const quoteDeliveryFn = useServerFn(quoteDelivery);
+  const submitOrderFn = useServerFn(submitOrder);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [tipo, setTipo] = useState<"delivery" | "retiro">("delivery");
   const [address, setAddress] = useState("");
-  const [zone, setZone] = useState(ZONAS[0]!);
-  const [payment, setPayment] = useState(PAGOS[0]!);
+  const [zone, setZone] = useState<(typeof ZONAS)[number]>(ZONAS[0]);
+  const [payment, setPayment] = useState<(typeof PAGOS)[number]>(PAGOS[0]);
   const [notes, setNotes] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -137,29 +138,41 @@ export function CartDrawer() {
     const clientOrderId = submissionKey.current ?? crypto.randomUUID();
     submissionKey.current = clientOrderId;
     setSending(true);
-    const { error: dbError, retrySafe } = await submitOrder({
-      client_order_id: clientOrderId,
-      customer_name: name.trim().slice(0, 100),
-      phone: phone.trim().slice(0, 30),
-      delivery_type: tipo,
-      delivery_distance_meters:
-        tipo === "delivery" && deliveryQuote?.available ? deliveryQuote.distanceMeters : null,
-      delivery_fee: tipo === "delivery" && deliveryQuote?.available ? deliveryQuote.fee : null,
-      address: tipo === "delivery" ? address.trim().slice(0, 200) : null,
-      zone: tipo === "delivery" ? zone : null,
-      payment,
-      notes: notes.trim().slice(0, 500) || null,
-      items: items.map(({ name, extras, salsa, qty, unitPrice }) => ({
-        name,
-        extras,
-        salsa: salsa ?? null,
-        qty,
-        unit_price: unitPrice ?? null,
-      })),
-    });
+    let submission: Awaited<ReturnType<typeof submitOrderFn>>;
+    try {
+      submission = await submitOrderFn({
+        data: {
+          client_order_id: clientOrderId,
+          customer_name: name.trim().slice(0, 100),
+          phone: phone.trim().slice(0, 30),
+          delivery_type: tipo,
+          delivery_distance_meters:
+            tipo === "delivery" && deliveryQuote?.available ? deliveryQuote.distanceMeters : null,
+          delivery_fee: tipo === "delivery" && deliveryQuote?.available ? deliveryQuote.fee : null,
+          address: tipo === "delivery" ? address.trim().slice(0, 200) : null,
+          zone: tipo === "delivery" ? zone : null,
+          payment,
+          notes: notes.trim().slice(0, 500) || null,
+          items: items.map(({ name, extras, salsa, qty, unitPrice }) => ({
+            name,
+            extras,
+            salsa: salsa ?? null,
+            qty,
+            unit_price: unitPrice ?? null,
+          })),
+        },
+      });
+    } catch {
+      setSending(false);
+      return setError("No pudimos confirmar el pedido. Revisá tu conexión e intentá nuevamente.");
+    }
     setSending(false);
+    const { error: dbError, retrySafe } = submission;
     if (dbError)
       return setError(
+        dbError.code === "delivery_quote_changed" || dbError.code === "price_changed"
+          ? dbError.message ?? "El precio o el envío cambiaron. Revisá nuevamente el pedido."
+          :
         retrySafe
           ? "No pudimos registrar el pedido. Probá nuevamente en unos segundos; el reintento no va a duplicarlo."
           : "No pudimos confirmar el pedido. Antes de volver a intentarlo, consultá al local para evitar duplicarlo.",
@@ -302,7 +315,7 @@ export function CartDrawer() {
                     className={field}
                     value={zone}
                     onChange={(e) => {
-                      setZone(e.target.value);
+                      setZone(e.target.value as (typeof ZONAS)[number]);
                       setDeliveryQuote(null);
                     }}
                   >
@@ -346,7 +359,7 @@ export function CartDrawer() {
               <select
                 className={field}
                 value={payment}
-                onChange={(e) => setPayment(e.target.value)}
+                onChange={(e) => setPayment(e.target.value as (typeof PAGOS)[number])}
               >
                 {PAGOS.map((p) => (
                   <option key={p}>{p}</option>

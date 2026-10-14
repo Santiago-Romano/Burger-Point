@@ -38,12 +38,14 @@ export type Database = {
           delivery_type: string;
           id: string;
           items: Json;
+          items_subtotal: number | null;
           notes: string | null;
           order_number: number;
           prep_eta_minutes: number | null;
           payment: string;
           phone: string;
           status: Database["public"]["Enums"]["order_status"];
+          total_amount: number | null;
           zone: string | null;
         };
         Insert: {
@@ -57,12 +59,14 @@ export type Database = {
           delivery_type?: string;
           id?: string;
           items: Json;
+          items_subtotal?: number | null;
           notes?: string | null;
           order_number?: number;
           prep_eta_minutes?: number | null;
           payment: string;
           phone: string;
           status?: Database["public"]["Enums"]["order_status"];
+          total_amount?: number | null;
           zone?: string | null;
         };
         Update: {
@@ -76,12 +80,14 @@ export type Database = {
           delivery_type?: string;
           id?: string;
           items?: Json;
+          items_subtotal?: number | null;
           notes?: string | null;
           order_number?: number;
           prep_eta_minutes?: number | null;
           payment?: string;
           phone?: string;
           status?: Database["public"]["Enums"]["order_status"];
+          total_amount?: number | null;
           zone?: string | null;
         };
         Relationships: [];

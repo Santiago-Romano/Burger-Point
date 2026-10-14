@@ -604,7 +604,7 @@ function Panel() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    navigate({ to: "/auth", replace: true });
+    navigate({ to: "/auth", search: { reset: false }, replace: true });
   };
 
   if (allowed === null) return <div className="min-h-screen bg-ink p-8 text-cream">Cargando…</div>;

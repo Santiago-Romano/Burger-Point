@@ -274,6 +274,11 @@ function MenuCard({ item }: { item: MenuItem }) {
   const displayDesc = variant?.desc ?? item.desc;
   const displayImage = variant?.image ?? item.image;
   const displayPrice = variant?.price ?? item.price;
+  const selectedExtrasPrice = extrasSel.reduce(
+    (sum, label) => sum + (item.extras?.find((extra) => extra.label === label)?.price ?? 0),
+    0,
+  );
+  const cartUnitPrice = displayPrice == null ? undefined : displayPrice + selectedExtrasPrice;
   const canCustomize = Boolean(item.extras || item.sauces);
 
   useEffect(() => {
@@ -302,9 +307,9 @@ function MenuCard({ item }: { item: MenuItem }) {
       name: displayName,
       extras: extrasSel,
       salsa: salsa || undefined,
-      unitPrice: displayPrice,
+      unitPrice: cartUnitPrice,
       isPromo: item.category === "promos",
-      promoDays: item.category === "promos" ? item.promoDays : undefined,
+      ...(item.category === "promos" ? { promoDays: item.promoDays ?? [] } : {}),
     });
     setCustomizerOpen(false);
     setExtrasSel([]);
@@ -734,7 +739,7 @@ function IndexInner() {
       extras: [],
       unitPrice: item.price,
       isPromo: true,
-      promoDays: item.promoDays,
+      promoDays: item.promoDays ?? [],
     });
     toast.success(`${item.name} agregada al pedido`, {
       action: { label: "Ver pedido", onClick: () => cart.setOpen(true) },
