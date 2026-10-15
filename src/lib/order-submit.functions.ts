@@ -44,6 +44,16 @@ export const submitOrder = createServerFn({ method: "POST" })
   .validator(submissionSchema)
   .handler(async ({ data }): Promise<OrderSubmissionResult> => {
     try {
+      const { checkRateLimit, getClientKey } = await import("@/lib/rate-limit.server");
+      const clientKey = await getClientKey("order");
+      if (clientKey && !checkRateLimit(clientKey, 8, 5 * 60_000)) {
+        return failure(
+          "rate_limited",
+          "Estamos recibiendo demasiados pedidos desde tu conexión. Esperá unos minutos e intentá de nuevo.",
+          false,
+        );
+      }
+
       if (data.delivery_type === "delivery") {
         if (!data.address || !data.zone) return failure("invalid_delivery", "Revisá la dirección y localidad.");
       } else if (
