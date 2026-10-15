@@ -157,12 +157,15 @@ export const submitOrder = createServerFn({ method: "POST" })
           .maybeSingle();
         if (existing.data) return { data: existing.data, error: null, retrySafe: true };
       }
+      if (inserted.error) {
+        console.error("[order-submit] Error de insert en orders:", JSON.stringify(inserted.error));
+      }
       return failure("order_insert_failed", "No se pudo registrar el pedido. Intentá nuevamente.", true);
     } catch (error) {
       if (error instanceof OrderPricingError) {
         return failure(error.code, error.message);
       }
-      console.error("[order-submit] Pedido rechazado por un error de servidor.");
+      console.error("[order-submit] Pedido rechazado por un error de servidor:", error);
       return failure("server_error", "No se pudo confirmar el pedido. Intentá nuevamente.", true);
     }
   });
