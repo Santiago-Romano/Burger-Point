@@ -53,6 +53,9 @@ const DEFAULT_DELIVERY_MINUTES = 20;
 const DEFAULT_DELAY_PRESETS = [20, 30, 40, 50];
 const MAX_DELAY_MINUTES = 240;
 
+const PRINT_FONT_SIZES = { chica: "13px", normal: "16px", grande: "19px" } as const;
+type PrintFont = keyof typeof PRINT_FONT_SIZES;
+
 function beep() {
   try {
     const ctx = new AudioContext();
@@ -104,6 +107,7 @@ function Panel() {
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [width, setWidth] = useState<"80mm" | "58mm">("80mm");
+  const [printFont, setPrintFont] = useState<PrintFont>("normal");
   const [view, setView] = useState<"orders" | "menu" | "access">("menu");
   const [connection, setConnection] = useState<"conectado" | "reconectando" | "desconectado">(
     "reconectando",
@@ -131,6 +135,8 @@ function Panel() {
     let active = true;
     const w = localStorage.getItem("bp-print-width");
     if (w === "58mm" || w === "80mm") setWidth(w);
+    const f = localStorage.getItem("bp-print-font");
+    if (f === "chica" || f === "normal" || f === "grande") setPrintFont(f);
     const checkAccess = async () => {
       const { data: authData } = await supabase.auth.getUser();
       if (!active) return;
@@ -709,6 +715,20 @@ function Panel() {
                   <option value="80mm">80 mm</option>
                   <option value="58mm">58 mm</option>
                 </select>
+                <label className="text-cream-dim">Letra</label>
+                <select
+                  value={printFont}
+                  onChange={(e) => {
+                    const v = e.target.value as PrintFont;
+                    setPrintFont(v);
+                    localStorage.setItem("bp-print-font", v);
+                  }}
+                  className="rounded-md bg-ink-2 px-2 py-1 ring-1 ring-white/15"
+                >
+                  <option value="chica">Chica</option>
+                  <option value="normal">Normal</option>
+                  <option value="grande">Grande</option>
+                </select>
                 <button onClick={beep} className="rounded-md px-3 py-1 ring-1 ring-white/15">
                   Probar sonido
                 </button>
@@ -1243,47 +1263,46 @@ function Panel() {
 
       {printing && (
         <div
-          className="hidden bg-white p-2 font-mono text-[13px] leading-snug text-black print:block"
-          style={{ width, boxSizing: "border-box" }}
+          className="hidden bg-white p-2 font-mono leading-snug text-black print:block"
+          style={{ width, boxSizing: "border-box", fontSize: PRINT_FONT_SIZES[printFont] }}
         >
-          <p className="text-center text-[15px] font-bold">BURGER POINT</p>
-          <p className="text-center text-[12px] font-bold">COMPROBANTE DE PEDIDO</p>
-          <p className="mt-1 text-center text-[22px] font-bold">N.º {printing.order_number}</p>
-          <p className="text-center text-[12px]">
+          <p className="text-center text-[1.1em] font-bold">BURGER POINT</p>
+          <p className="text-center text-[0.85em] font-bold">COMPROBANTE DE PEDIDO</p>
+          <p className="text-center text-[1.5em] font-bold">N.º {printing.order_number}</p>
+          <p className="text-center text-[0.85em]">
             {new Date(printing.created_at).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}
           </p>
-          <hr className="my-2 border-black" />
+          <hr className="my-1 border-black" />
           <p><b>Cliente:</b> {printing.customer_name}</p>
           <p><b>Teléfono:</b> {printing.phone}</p>
-          <p className="mt-1 font-bold">
+          <p className="font-bold">
             {printing.delivery_type === "delivery" ? "DELIVERY" : "RETIRO EN LOCAL"}
           </p>
           {printing.delivery_type === "delivery" && <p><b>Dirección:</b> {printing.address}{printing.zone ? `, ${printing.zone}` : ""}</p>}
           <p><b>Pago:</b> {printing.payment}</p>
           {printing.prep_eta_minutes && <p><b>Demora:</b> {printing.prep_eta_minutes} min</p>}
-          <hr className="my-2 border-black" />
-          <p className="mb-1 text-center font-bold">DETALLE DEL PEDIDO</p>
-          {(printing.items as unknown as Item[]).map((i, idx) => (
-            <div key={idx} className="mb-2 break-words">
-              <div className="flex justify-between gap-2 font-bold">
-                <span>{i.qty} x {i.name}</span>
-                <span className="shrink-0">
-                  {i.unit_price != null
-                    ? `$ ${(i.unit_price * i.qty).toLocaleString("es-AR")}`
-                    : "—"}
-                </span>
+          <hr className="my-1 border-black" />
+          <p className="text-center font-bold">DETALLE DEL PEDIDO</p>
+          {(printing.items as unknown as Item[]).map((i, idx) => {
+            const detail: string[] = [];
+            if (i.extras?.length) detail.push(`+ ${i.extras.join(", ")}`);
+            if (i.salsa) detail.push(`Salsa: ${i.salsa}`);
+            if (i.unit_price != null) detail.push(`$ ${i.unit_price.toLocaleString("es-AR")} c/u`);
+            return (
+              <div key={idx} className="mb-1 break-words">
+                <div className="flex justify-between gap-2 font-bold">
+                  <span>{i.qty} x {i.name}</span>
+                  <span className="shrink-0">
+                    {i.unit_price != null
+                      ? `$ ${(i.unit_price * i.qty).toLocaleString("es-AR")}`
+                      : "—"}
+                  </span>
+                </div>
+                {detail.length > 0 && <p className="text-[0.85em]">{detail.join(" · ")}</p>}
               </div>
-              {i.unit_price != null && <p>$ {i.unit_price.toLocaleString("es-AR")} c/u</p>}
-              {(i.extras?.length || i.salsa) && (
-                <p className="text-[12px]">
-                  {i.extras?.length ? `+ ${i.extras.join(", ")}` : ""}
-                  {i.extras?.length && i.salsa ? " · " : ""}
-                  {i.salsa ? `Salsa: ${i.salsa}` : ""}
-                </p>
-              )}
-            </div>
-          ))}
-          <hr className="my-2 border-black" />
+            );
+          })}
+          <hr className="my-1 border-black" />
           {(() => {
             const items = printing.items as unknown as Item[];
             const hasAllPrices = items.every((item) => item.unit_price != null);
@@ -1294,14 +1313,14 @@ function Panel() {
               {printing.delivery_type === "delivery" && (
                 <div className="flex justify-between gap-2"><span>Envío</span><span>$ {deliveryFee.toLocaleString("es-AR")}</span></div>
               )}
-              <div className="mt-1 flex justify-between gap-2 text-[17px] font-bold">
+              <div className="mt-1 flex justify-between gap-2 text-[1.2em] font-bold">
                 <span>TOTAL</span><span>{hasAllPrices ? `$ ${(subtotal + deliveryFee).toLocaleString("es-AR")}` : "Verificar precios"}</span>
               </div>
-              {!hasAllPrices && <p className="text-[10px]">Este pedido no tiene todos los precios guardados.</p>}
+              {!hasAllPrices && <p className="text-[0.75em]">Este pedido no tiene todos los precios guardados.</p>}
             </>;
           })()}
-          {printing.notes && <p className="mt-2 break-words"><b>Notas:</b> {printing.notes}</p>}
-          <p className="mt-3 text-center text-[11px]">Gracias por tu pedido</p>
+          {printing.notes && <p className="mt-1 break-words"><b>Notas:</b> {printing.notes}</p>}
+          <p className="mt-2 text-center text-[0.8em]">Gracias por tu pedido</p>
         </div>
       )}
     </>
