@@ -31,6 +31,7 @@ export type Database = {
           address: string | null;
           client_order_id: string;
           created_at: string;
+          customer_email: string | null;
           customer_name: string;
           delivery_distance_meters: number | null;
           delivery_eta_minutes: number | null;
@@ -52,6 +53,7 @@ export type Database = {
           address?: string | null;
           client_order_id?: string;
           created_at?: string;
+          customer_email?: string | null;
           customer_name: string;
           delivery_distance_meters?: number | null;
           delivery_eta_minutes?: number | null;
@@ -73,6 +75,7 @@ export type Database = {
           address?: string | null;
           client_order_id?: string;
           created_at?: string;
+          customer_email?: string | null;
           customer_name?: string;
           delivery_distance_meters?: number | null;
           delivery_eta_minutes?: number | null;

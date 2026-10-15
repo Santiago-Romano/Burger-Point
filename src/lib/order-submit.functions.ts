@@ -18,6 +18,7 @@ const orderLineSchema = z.object({
 const submissionSchema = z.object({
   client_order_id: z.string().uuid(),
   customer_name: z.string().trim().min(2).max(100),
+  email: z.string().trim().toLowerCase().email().max(200),
   phone: z.string().trim().min(6).max(30).refine((value) => value.replace(/\D/g, "").length >= 8),
   delivery_type: z.enum(["delivery", "retiro"]),
   delivery_distance_meters: z.number().int().min(0).max(5_500).nullable(),
@@ -115,6 +116,7 @@ export const submitOrder = createServerFn({ method: "POST" })
       const insert: Database["public"]["Tables"]["orders"]["Insert"] = {
         client_order_id: data.client_order_id,
         customer_name: data.customer_name,
+        customer_email: data.email,
         phone: data.phone,
         delivery_type: data.delivery_type,
         delivery_distance_meters: deliveryDistance,
@@ -134,7 +136,18 @@ export const submitOrder = createServerFn({ method: "POST" })
         .insert(insert)
         .select("id,order_number,client_order_id")
         .single();
-      if (!inserted.error && inserted.data) return { data: inserted.data, error: null, retrySafe: true };
+      if (!inserted.error && inserted.data) {
+        const { sendOrderReceivedEmail, buildTrackingUrl } = await import("@/lib/email.server");
+        await sendOrderReceivedEmail({
+          to: data.email,
+          orderNumber: inserted.data.order_number,
+          customerName: data.customer_name,
+          deliveryType: data.delivery_type,
+          total: priced.itemsSubtotal + (deliveryFee ?? 0),
+          trackingUrl: buildTrackingUrl(data.client_order_id),
+        });
+        return { data: inserted.data, error: null, retrySafe: true };
+      }
 
       if (inserted.error?.code === "23505") {
         const existing = await supabaseAdmin

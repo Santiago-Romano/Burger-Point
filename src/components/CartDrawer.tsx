@@ -57,6 +57,7 @@ export function CartDrawer() {
   const quoteDeliveryFn = useServerFn(quoteDelivery);
   const submitOrderFn = useServerFn(submitOrder);
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [tipo, setTipo] = useState<"delivery" | "retiro">("delivery");
   const [address, setAddress] = useState("");
@@ -128,6 +129,7 @@ export function CartDrawer() {
       );
     }
     if (name.trim().length < 2) return setError("Ingresá tu nombre.");
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError("Ingresá un email válido para la confirmación.");
     if (phone.replace(/\D/g, "").length < 8) return setError("Ingresá un teléfono válido.");
     if (tipo === "delivery" && address.trim().length < 4) return setError("Ingresá la dirección.");
     if (tipo === "delivery" && !quoteMatchesAddress)
@@ -144,6 +146,7 @@ export function CartDrawer() {
         data: {
           client_order_id: clientOrderId,
           customer_name: name.trim().slice(0, 100),
+          email: email.trim().toLowerCase().slice(0, 200),
           phone: phone.trim().slice(0, 30),
           delivery_type: tipo,
           delivery_distance_meters:
@@ -278,6 +281,16 @@ export function CartDrawer() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={100}
+              />
+              <input
+                className={field}
+                type="email"
+                placeholder="Email (te enviamos la confirmación)"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                maxLength={200}
+                inputMode="email"
+                autoComplete="email"
               />
               <input
                 className={field}
