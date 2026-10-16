@@ -65,7 +65,36 @@ export async function getServerDeliveryQuote(address: string, zone: string): Pro
     if (typeof distanceMeters !== "number" || !Number.isFinite(distanceMeters)) {
       return { success: false, reason: "route" };
     }
-    return { success: true, ...getDeliveryFee(distanceMeters) };
+    const defaultQuote = getDeliveryFee(distanceMeters);
+    if (!defaultQuote.available) return { success: true, ...defaultQuote };
+
+    // Read the current owner-configured tariff table; retain legacy defaults if settings are unavailable.
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: settings } = await supabaseAdmin
+        .from("shop_settings")
+        .select("delivery_fee_2500, delivery_fee_3000, delivery_fee_3500, delivery_fee_4000, delivery_fee_4500, delivery_fee_5000, delivery_fee_5500")
+        .eq("id", 1)
+        .maybeSingle();
+      if (settings) {
+        const bands = [
+          { maxMeters: 2500, fee: settings.delivery_fee_2500 },
+          { maxMeters: 3000, fee: settings.delivery_fee_3000 },
+          { maxMeters: 3500, fee: settings.delivery_fee_3500 },
+          { maxMeters: 4000, fee: settings.delivery_fee_4000 },
+          { maxMeters: 4500, fee: settings.delivery_fee_4500 },
+          { maxMeters: 5000, fee: settings.delivery_fee_5000 },
+          { maxMeters: 5500, fee: settings.delivery_fee_5500 },
+        ];
+        const band = bands.find((item) => Math.ceil(distanceMeters) <= item.maxMeters);
+        if (band && Number.isSafeInteger(band.fee) && band.fee >= 0) {
+          return { success: true, available: true, distanceMeters: Math.ceil(distanceMeters), fee: band.fee };
+        }
+      }
+    } catch {
+      // Keep existing tariff behavior if the optional settings read fails.
+    }
+    return { success: true, ...defaultQuote };
   } catch {
     return { success: false, reason: "route" };
   }

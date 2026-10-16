@@ -97,6 +97,13 @@ export type Database = {
       };
       shop_settings: {
         Row: {
+          delivery_fee_2500: number;
+          delivery_fee_3000: number;
+          delivery_fee_3500: number;
+          delivery_fee_4000: number;
+          delivery_fee_4500: number;
+          delivery_fee_5000: number;
+          delivery_fee_5500: number;
           delivery_minutes: number;
           delivery_presets: number[];
           id: number;
@@ -105,6 +112,13 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          delivery_fee_2500?: number;
+          delivery_fee_3000?: number;
+          delivery_fee_3500?: number;
+          delivery_fee_4000?: number;
+          delivery_fee_4500?: number;
+          delivery_fee_5000?: number;
+          delivery_fee_5500?: number;
           delivery_minutes?: number;
           delivery_presets?: number[];
           id?: number;
@@ -113,6 +127,13 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          delivery_fee_2500?: number;
+          delivery_fee_3000?: number;
+          delivery_fee_3500?: number;
+          delivery_fee_4000?: number;
+          delivery_fee_4500?: number;
+          delivery_fee_5000?: number;
+          delivery_fee_5500?: number;
           delivery_minutes?: number;
           delivery_presets?: number[];
           id?: number;

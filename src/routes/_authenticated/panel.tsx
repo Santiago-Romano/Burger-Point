@@ -130,6 +130,12 @@ function Panel() {
   const [presetDraft, setPresetDraft] = useState({ prep: "", delivery: "" });
   const [savingDelays, setSavingDelays] = useState(false);
   const [delaysMessage, setDelaysMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const DEFAULT_DELIVERY_FEES = [1500, 1800, 2000, 2500, 3000, 3500, 4000];
+  const DELIVERY_FEE_LABELS = ["Hasta 2,5 km", "Hasta 3 km", "Hasta 3,5 km", "Hasta 4 km", "Hasta 4,5 km", "Hasta 5 km", "Hasta 5,5 km"];
+  const [deliveryFeesDraft, setDeliveryFeesDraft] = useState<string[]>(DEFAULT_DELIVERY_FEES.map(String));
+  const [savingDeliveryFees, setSavingDeliveryFees] = useState(false);
+  const [deliveryFeesMessage, setDeliveryFeesMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
 
   useEffect(() => {
     let active = true;
@@ -287,6 +293,57 @@ function Panel() {
       active = false;
     };
   }, [allowed]);
+
+  useEffect(() => {
+    if (!allowed) return;
+    let active = true;
+    void supabase
+      .from("shop_settings")
+      .select("delivery_fee_2500, delivery_fee_3000, delivery_fee_3500, delivery_fee_4000, delivery_fee_4500, delivery_fee_5000, delivery_fee_5500")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active || !data) return;
+        setDeliveryFeesDraft([
+          data.delivery_fee_2500, data.delivery_fee_3000, data.delivery_fee_3500,
+          data.delivery_fee_4000, data.delivery_fee_4500, data.delivery_fee_5000,
+          data.delivery_fee_5500,
+        ].map(String));
+      });
+    return () => { active = false; };
+  }, [allowed]);
+
+  const saveDeliveryFees = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const fees = deliveryFeesDraft.map(Number);
+    if (fees.some((fee) => !Number.isSafeInteger(fee) || fee < 0 || fee > 100000)) {
+      setDeliveryFeesMessage({ ok: false, text: "Ingresá importes enteros entre $0 y $100.000." });
+      return;
+    }
+    if (fees.some((fee, index) => index > 0 && fee < fees[index - 1])) {
+      setDeliveryFeesMessage({ ok: false, text: "Los importes deben mantenerse iguales o aumentar con la distancia." });
+      return;
+    }
+    setSavingDeliveryFees(true);
+    setDeliveryFeesMessage(null);
+    const { error } = await supabase.from("shop_settings").upsert({
+      id: 1,
+      delivery_fee_2500: fees[0],
+      delivery_fee_3000: fees[1],
+      delivery_fee_3500: fees[2],
+      delivery_fee_4000: fees[3],
+      delivery_fee_4500: fees[4],
+      delivery_fee_5000: fees[5],
+      delivery_fee_5500: fees[6],
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "id" });
+    setSavingDeliveryFees(false);
+    if (error) {
+      setDeliveryFeesMessage({ ok: false, text: "No se pudieron guardar los precios. Verificá que la migración de tarifas esté aplicada." });
+      return;
+    }
+    setDeliveryFeesMessage({ ok: true, text: "Precios de delivery guardados." });
+  };
 
   const saveDelays = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -1008,6 +1065,38 @@ function Panel() {
                 Los nuevos tiempos se agregan al guardar. Las demoras se informan al pasar a cocina (hamburguesas) y al marcar enviado (delivery). Los pedidos ya informados no cambian.
               </p>
             </form>
+
+            {accessRole === "admin" && (
+              <form onSubmit={saveDeliveryFees} className="mx-5 mt-4 grid gap-4 rounded-2xl bg-ink-2 p-4 ring-1 ring-white/10">
+                <div>
+                  <h2 className="text-sm font-semibold">Tarifas de delivery</h2>
+                  <p className="mt-1 text-xs text-cream-dim">Configurá cuánto se cobra según la distancia desde el local. Los cambios se aplican a los nuevos cálculos y pedidos; los pedidos ya confirmados conservan su importe.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {DELIVERY_FEE_LABELS.map((label, index) => (
+                    <label key={label} className="grid gap-1 text-sm">
+                      <span className="text-cream-dim">{label}</span>
+                      <div className="flex items-center rounded-lg bg-ink px-3 ring-1 ring-white/15">
+                        <span className="text-cream-dim">$</span>
+                        <input
+                          type="number" min="0" max="100000" step="1" required
+                          value={deliveryFeesDraft[index]}
+                          onChange={(event) => setDeliveryFeesDraft((current) => current.map((value, i) => i === index ? event.target.value : value))}
+                          className="w-full bg-transparent px-2 py-2 text-cream outline-none"
+                          aria-label={`Precio de delivery ${label}`}
+                        />
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="submit" disabled={savingDeliveryFees} className="rounded-full bg-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-50">
+                    {savingDeliveryFees ? "Guardando…" : "Guardar tarifas"}
+                  </button>
+                  {deliveryFeesMessage && <p className={`text-sm ${deliveryFeesMessage.ok ? "text-emerald-300" : "text-red-200"}`} role={deliveryFeesMessage.ok ? "status" : "alert"}>{deliveryFeesMessage.text}</p>}
+                </div>
+              </form>
+            )}
 
             <nav className="flex flex-wrap gap-2 px-5 py-4">
               {STATUS.map((s) => {
